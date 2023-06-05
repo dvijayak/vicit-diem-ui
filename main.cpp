@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////////
-// Name:        minimal.cpp
-// Purpose:     Minimal wxWidgets sample
+// Name:        main.cpp
+// Purpose:     UI for the vicit-diem task tracking tool
 // Author:      Julian Smart
 // Modified by: Joshua Parfitt
 // Created:     04/01/98
@@ -14,11 +14,14 @@
 
 // ----------------------------------------------------------------------------
 // headers
-// ----------------------------------------------------------------------------g
+// ----------------------------------------------------------------------------
 
 // For compilers that support precompilation, includes "wx/wx.h".
 #include "wx/wxprec.h"
-
+#include "wx/button.h"
+#include "wx/stattext.h"
+#include "wx/textctrl.h"
+#include "wx/statbox.h"
 
 // for all others, include the necessary headers (this file is usually all you
 // need because it includes almost all "standard" wxWidgets headers)
@@ -53,6 +56,7 @@ public:
     // event handlers (these functions should _not_ be virtual)
     void OnQuit(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
+    void OnButtonOK(wxCommandEvent& event);
 
 private:
     // any class wishing to process wxWidgets events must use this macro
@@ -72,7 +76,8 @@ enum
     // it is important for the id corresponding to the "About" command to have
     // this standard value as otherwise it won't be handled properly under Mac
     // (where it is special and put into the "Apple" menu)
-    Minimal_About = wxID_ABOUT
+    Minimal_About = wxID_ABOUT,
+    Minimal_OK = wxID_OK
 };
 
 // ----------------------------------------------------------------------------
@@ -85,6 +90,7 @@ enum
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_MENU(Minimal_Quit,  MyFrame::OnQuit)
     EVT_MENU(Minimal_About, MyFrame::OnAbout)
+    EVT_BUTTON(wxID_OK, MyFrame::OnButtonOK)
 wxEND_EVENT_TABLE()
 
 // Create a new application object: this macro will allow wxWidgets to create
@@ -111,7 +117,7 @@ bool MyApp::OnInit()
         return false;
 
     // create the main application window
-    MyFrame *frame = new MyFrame("Minimal wxWidgets App");
+    MyFrame *frame = new MyFrame("vicit-diem");
 
     // and show it (the frames, unlike simple controls, are not shown when
     // created initially)
@@ -149,6 +155,19 @@ MyFrame::MyFrame(const wxString& title)
 
     // ... and attach this menu bar to the frame
     SetMenuBar(menuBar);
+
+    wxStaticText* staticText = new wxStaticText(this, wxID_STATIC,
+        wxT("Enter path to JSON file"),
+        wxPoint(10, 10), wxDefaultSize, wxALIGN_LEFT);
+
+     wxButton* button = new wxButton(this, wxID_OK, wxT("Load"),
+           wxPoint(300, 10), wxDefaultSize);
+
+    wxTextCtrl* textCtrl = new wxTextCtrl(this, wxUSE_TEXTCTRL,
+        wxEmptyString, wxPoint(160, 10), wxSize(125, 20));
+
+    wxStaticBox* staticBox = new wxStaticBox(this, wxID_STATIC,
+         wxT("JSON dump goes here"), wxPoint(20, 55), wxSize(360, 120));
 #else // !wxUSE_MENUBAR
     // If menus are not available add a button to access the about box
     wxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -161,13 +180,12 @@ MyFrame::MyFrame(const wxString& title)
 #if wxUSE_STATUSBAR
     // create a status bar just for fun (by default with 1 pane only)
     CreateStatusBar(2);
-    SetStatusText("Welcome to wxWidgets!");
+    SetStatusText("Welcome to vicit-diem!");
 #endif // wxUSE_STATUSBAR
 }
 
 
 // event handlers
-
 void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
 {
     // true is to force the frame to close
@@ -178,14 +196,19 @@ void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
 {
     wxMessageBox(wxString::Format
                  (
-                    "Welcome to %s!\n"
+                    "Welcome to vicit-diem!\n"
                     "\n"
-                    "This is the minimal wxWidgets sample\n"
+                    "This is the vicit-diem app\n"
                     "running under %s.",
                     wxVERSION_STRING,
                     wxGetOsDescription()
                  ),
-                 "About wxWidgets minimal sample",
+                 "About vicit-diem",
                  wxOK | wxICON_INFORMATION,
                  this);
+}
+
+void MyFrame::OnButtonOK(wxCommandEvent& event)
+{
+    // fill
 }
