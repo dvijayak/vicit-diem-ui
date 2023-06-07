@@ -22,6 +22,7 @@
 #include "wx/stattext.h"
 #include "wx/textctrl.h"
 #include "wx/statbox.h"
+#include "../cJSON/cJSON.h"
 #include <string>
 #include <fstream>
 using namespace std;
@@ -159,22 +160,22 @@ MyFrame::MyFrame(const wxString& title)
     // ... and attach this menu bar to the frame
     SetMenuBar(menuBar);
 
-    // Label
+    // label
     wxStaticText* label = new wxStaticText(this, wxID_ANY,
         wxT("Enter path to JSON file"),
         wxPoint(10, 15), wxDefaultSize, wxALIGN_LEFT);
 
-    // Text field
+    // text field
     textField = new wxTextCtrl(this, wxID_ANY,
         wxEmptyString, wxPoint(160, 10), wxSize(125, 20));
 
-    // Button
+    // button
     wxButton* button = new wxButton(this, wxID_OK, wxT("Load"),
         wxPoint(300, 10), wxDefaultSize);
 
-    // Text area
+    // text area
     textArea = new wxStaticBox(this, wxID_ANY,
-        wxT("JSON dump goes here"), wxPoint(20, 55), wxSize(360, 120));
+        wxT(""), wxPoint(20, 55), wxSize(360, 120));
 
     // create a status bar just for fun (by default with 1 pane only)
     CreateStatusBar(2);
@@ -214,12 +215,51 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
 
     if (fin)
     {
-        JSONdump = new wxStaticText(textArea, wxID_ANY, 
-            wxString::Format(wxT("File %s was found"), stringPath.c_str()), wxPoint(10,10));
+        // parse the JSON file
+        string file, line; 
+        while (getline(fin, line))
+            file += line; 
+        cJSON *root = cJSON_Parse(file.c_str());
+
+        // count the total number of objects
+        int objectCount = 0;
+        cJSON* childObject = NULL;
+        cJSON_ArrayForEach(childObject, root)
+        {
+            if (cJSON_IsObject(childObject))
+                objectCount++;   
+        }
+
+        // count the total number of arrays
+        int arrayCount = 0;
+        cJSON* childArray = NULL;
+        cJSON_ArrayForEach(childArray, root)
+        {
+            if (cJSON_IsArray(childArray))
+                arrayCount++; 
+        }
+
+        // return the length of the longest array
+
+        // return the length of the shortest array
+
+        // count the total number of keys
+
+        // Show statistics
+        string stringStatistics = "Total Number of Objects: " + to_string(objectCount) + "\n"
+                                + "Total Number of Arrays: " + to_string(arrayCount) + "\n";
+        wxString wxStringStatistics(stringStatistics);
+        JSONdump = new wxStaticText(textArea, wxID_ANY, wxStringStatistics, wxPoint(5, 5));
+
+        // print the contents of the JSON file
     }
     else
     {
-       JSONdump = new wxStaticText(textArea, wxID_ANY, 
-            wxString::Format(wxT("File %s was not found"), stringPath.c_str()), wxPoint(10,10));
+        wxString errorMessage = wxString::Format(wxT("File %s was not found"), stringPath.c_str());
+        JSONdump = new wxStaticText(textArea, wxID_ANY, errorMessage, wxPoint(5, 5));
     }
+
+    fin.close();
 }
+
+// /Users/joshuaparfitt/Desktop/basic.json
