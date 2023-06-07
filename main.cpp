@@ -22,6 +22,9 @@
 #include "wx/stattext.h"
 #include "wx/textctrl.h"
 #include "wx/statbox.h"
+#include <string>
+#include <fstream>
+using namespace std;
 
 // for all others, include the necessary headers (this file is usually all you
 // need because it includes almost all "standard" wxWidgets headers)
@@ -61,6 +64,9 @@ public:
 private:
     // any class wishing to process wxWidgets events must use this macro
     wxDECLARE_EVENT_TABLE();
+    wxTextCtrl* textField;
+    wxStaticText* JSONdump;
+    wxStaticBox* textArea;
 };
 
 // ----------------------------------------------------------------------------
@@ -76,8 +82,7 @@ enum
     // it is important for the id corresponding to the "About" command to have
     // this standard value as otherwise it won't be handled properly under Mac
     // (where it is special and put into the "Apple" menu)
-    Minimal_About = wxID_ABOUT,
-    Minimal_OK = wxID_OK
+    Minimal_About = wxID_ABOUT
 };
 
 // ----------------------------------------------------------------------------
@@ -137,8 +142,6 @@ bool MyApp::OnInit()
 MyFrame::MyFrame(const wxString& title)
        : wxFrame(NULL, wxID_ANY, title)
 {
-#define wxUSE_MENUBAR 1
-#if wxUSE_MENUBAR
     // create a menu bar
     wxMenu *fileMenu = new wxMenu;
 
@@ -156,34 +159,27 @@ MyFrame::MyFrame(const wxString& title)
     // ... and attach this menu bar to the frame
     SetMenuBar(menuBar);
 
-    wxStaticText* staticText = new wxStaticText(this, wxID_STATIC,
+    // Label
+    wxStaticText* label = new wxStaticText(this, wxID_ANY,
         wxT("Enter path to JSON file"),
-        wxPoint(10, 10), wxDefaultSize, wxALIGN_LEFT);
+        wxPoint(10, 15), wxDefaultSize, wxALIGN_LEFT);
 
-     wxButton* button = new wxButton(this, wxID_OK, wxT("Load"),
-           wxPoint(300, 10), wxDefaultSize);
-
-    wxTextCtrl* textCtrl = new wxTextCtrl(this, wxUSE_TEXTCTRL,
+    // Text field
+    textField = new wxTextCtrl(this, wxID_ANY,
         wxEmptyString, wxPoint(160, 10), wxSize(125, 20));
 
-    wxStaticBox* staticBox = new wxStaticBox(this, wxID_STATIC,
-         wxT("JSON dump goes here"), wxPoint(20, 55), wxSize(360, 120));
-#else // !wxUSE_MENUBAR
-    // If menus are not available add a button to access the about box
-    wxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
-    wxButton* aboutBtn = new wxButton(this, wxID_ANY, "About...");
-    aboutBtn->Bind(wxEVT_BUTTON, &MyFrame::OnAbout, this);
-    sizer->Add(aboutBtn, wxSizerFlags().Center());
-    SetSizer(sizer);
-#endif // wxUSE_MENUBAR/!wxUSE_MENUBAR
+    // Button
+    wxButton* button = new wxButton(this, wxID_OK, wxT("Load"),
+        wxPoint(300, 10), wxDefaultSize);
 
-#if wxUSE_STATUSBAR
+    // Text area
+    textArea = new wxStaticBox(this, wxID_ANY,
+        wxT("JSON dump goes here"), wxPoint(20, 55), wxSize(360, 120));
+
     // create a status bar just for fun (by default with 1 pane only)
     CreateStatusBar(2);
     SetStatusText("Welcome to vicit-diem!");
-#endif // wxUSE_STATUSBAR
 }
-
 
 // event handlers
 void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
@@ -210,5 +206,20 @@ void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
 
 void MyFrame::OnButtonOK(wxCommandEvent& event)
 {
-    // fill
+    wxString wxStringPath = textField->GetValue();
+    string stringPath = wxStringPath.ToStdString();
+
+    ifstream fin;
+    fin.open(stringPath);
+
+    if (fin)
+    {
+        JSONdump = new wxStaticText(textArea, wxID_ANY, 
+            wxString::Format(wxT("File %s was found"), stringPath.c_str()), wxPoint(10,10));
+    }
+    else
+    {
+       JSONdump = new wxStaticText(textArea, wxID_ANY, 
+            wxString::Format(wxT("File %s was not found"), stringPath.c_str()), wxPoint(10,10));
+    }
 }
