@@ -30,3 +30,10 @@
 *.exe
 *.out
 *.app
+vicit-diem
+
+# macOS .DS_STORE files
+.DS_STORE
+
+# .vscode directory
+.vscode/
