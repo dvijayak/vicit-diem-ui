@@ -37,7 +37,7 @@ using namespace std;
 // private classes
 // ----------------------------------------------------------------------------
 
-// Define a new application type, each program should derive a class from wxApp
+// define a new application type, each program should derive a class from wxApp
 class MyApp : public wxApp
 {
 public:
@@ -50,7 +50,7 @@ public:
     virtual bool OnInit() wxOVERRIDE;
 };
 
-// Define a new frame type: this is going to be our main frame
+// define a new frame type: this is going to be our main frame
 class MyFrame : public wxFrame
 {
 public:
@@ -69,6 +69,13 @@ private:
     wxStaticText* JSONdump;
     wxStaticBox* textArea;
 };
+
+// function prototypes
+int getTotalObjectCount(cJSON* root);
+int getTotalArrayCount(cJSON* root);
+int getLongestArrayLength(cJSON* root);
+int getShortestArrayLength(cJSON* root);
+int getTotalKeyCount(cJSON* root);
 
 // ----------------------------------------------------------------------------
 // constants
@@ -99,7 +106,7 @@ wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_BUTTON(wxID_OK, MyFrame::OnButtonOK)
 wxEND_EVENT_TABLE()
 
-// Create a new application object: this macro will allow wxWidgets to create
+// create a new application object: this macro will allow wxWidgets to create
 // the application object during program execution (it's better than using a
 // static object for many reasons) and also implements the accessor function
 // wxGetApp() which will return the reference of the right type (i.e. MyApp and
@@ -222,32 +229,26 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
         cJSON *root = cJSON_Parse(file.c_str());
 
         // count the total number of objects
-        int objectCount = 0;
-        cJSON* childObject = NULL;
-        cJSON_ArrayForEach(childObject, root)
-        {
-            if (cJSON_IsObject(childObject))
-                objectCount++;   
-        }
+        int totalObjectCount = getTotalObjectCount(root);
 
         // count the total number of arrays
-        int arrayCount = 0;
-        cJSON* childArray = NULL;
-        cJSON_ArrayForEach(childArray, root)
-        {
-            if (cJSON_IsArray(childArray))
-                arrayCount++; 
-        }
+        int totalArrayCount = getTotalArrayCount(root);
 
         // return the length of the longest array
+        int longestArrayLength = getLongestArrayLength(root);
 
         // return the length of the shortest array
+        int shortestArrayLength = getShortestArrayLength(root);
 
         // count the total number of keys
+        int totalKeyCount = getTotalKeyCount(root);
 
         // Show statistics
-        string stringStatistics = "Total Number of Objects: " + to_string(objectCount) + "\n"
-                                + "Total Number of Arrays: " + to_string(arrayCount) + "\n";
+        string stringStatistics = "Total Number of Objects: " + to_string(totalObjectCount) + "\n"
+                                + "Total Number of Arrays: " + to_string(totalArrayCount) + "\n"
+                                + "Length of Longest Array: " + to_string(longestArrayLength) + "\n"
+                                + "Length of Shortest Array: " + to_string(shortestArrayLength) + "\n"
+                                + "Total Number of Keys: " + to_string(totalKeyCount);
         wxString wxStringStatistics(stringStatistics);
         JSONdump = new wxStaticText(textArea, wxID_ANY, wxStringStatistics, wxPoint(5, 5));
 
@@ -258,8 +259,109 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
         wxString errorMessage = wxString::Format(wxT("File %s was not found"), stringPath.c_str());
         JSONdump = new wxStaticText(textArea, wxID_ANY, errorMessage, wxPoint(5, 5));
     }
-
     fin.close();
 }
 
-// /Users/joshuaparfitt/Desktop/basic.json
+int getTotalObjectCount(cJSON* root)
+{
+    int objectCount = 0;
+    if (root->type == cJSON_Object)
+        objectCount++;
+    
+    cJSON* child = root->child;
+    while (child)
+    {
+        objectCount += getTotalObjectCount(child);
+        child = child->next;
+    }
+    return objectCount;
+}
+
+int getTotalArrayCount(cJSON* root)
+{
+    int arrayCount = 0;
+    if (root->type == cJSON_Array)
+        arrayCount++;
+
+    cJSON* child = root->child;
+    while (child)
+    {
+        arrayCount += getTotalArrayCount(child);
+        child = child->next;
+    }
+    return arrayCount;
+}
+
+int getLongestArrayLength(cJSON* root)
+{
+    int longestArrayLength = 0;
+    if (root->type == cJSON_Array)
+    {
+        int arrayLength = cJSON_GetArraySize(root);
+        if (arrayLength > longestArrayLength)
+            longestArrayLength = arrayLength;
+    }
+    
+    cJSON* child = root->child;
+    while (child)
+    {
+        int childLength = getLongestArrayLength(child);
+        if (childLength > longestArrayLength)
+            longestArrayLength = childLength;
+        child = child->next;
+    }
+    return longestArrayLength;
+}
+
+int getShortestArrayLength(cJSON* root)
+{
+    int shortestArrayLength = INT_MAX;
+    if (root->type == cJSON_Array)
+    {
+        int arrayLength = cJSON_GetArraySize(root);
+        if (arrayLength < shortestArrayLength)
+            shortestArrayLength = arrayLength;
+    }
+    
+    cJSON* child = root->child;
+    while (child)
+    {
+        int childLength = getShortestArrayLength(child);
+        if (childLength < shortestArrayLength)
+            shortestArrayLength = childLength;
+        child = child->next;
+    }
+    return shortestArrayLength;
+}
+
+int getTotalKeyCount(cJSON* root)
+{
+    int totalKeyCount = 0;
+    if (root->type == cJSON_Object) 
+    {
+        cJSON* child = root->child;
+        while (child) 
+        {
+            if (!(child->string && child->string[0] == '['))
+            {
+                totalKeyCount++;
+            }
+            totalKeyCount += getTotalKeyCount(child);
+            child = child->next;
+        }
+    } 
+    else if (root->type == cJSON_Array) 
+    {
+        cJSON* child = root->child;
+        while (child) 
+        {
+            totalKeyCount += getTotalKeyCount(child);
+            child = child->next;
+        }
+    } 
+    return totalKeyCount;
+}
+
+// Path to JSON file:   /Users/joshuaparfitt/Development/basic.json
+//                      /Users/joshuaparfitt/Development/task_should_be_recorded_but_wasnt.json  
+//                      /Users/joshuaparfitt/Development/no_name.json       
