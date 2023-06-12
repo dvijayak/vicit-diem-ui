@@ -8,22 +8,18 @@
 // Licence:     wxWindows licence
 /////////////////////////////////////////////////////////////////////////////
 
-// ============================================================================
-// declarations
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// headers
-// ----------------------------------------------------------------------------
-
 // For compilers that support precompilation, includes "wx/wx.h".
 #include "wx/wxprec.h"
 #include "wx/button.h"
 #include "wx/stattext.h"
 #include "wx/textctrl.h"
 #include "wx/statbox.h"
+#include "wx/sizer.h"
+#include "wx/scrolbar.h"
 #include "../cJSON/cJSON.h"
 #include <string>
+#include <cstring>
+#include <cstdlib>
 #include <fstream>
 using namespace std;
 
@@ -32,10 +28,6 @@ using namespace std;
 #ifndef WX_PRECOMP
     #include "wx/wx.h"
 #endif
-
-// ----------------------------------------------------------------------------
-// private classes
-// ----------------------------------------------------------------------------
 
 // define a new application type, each program should derive a class from wxApp
 class MyApp : public wxApp
@@ -70,16 +62,12 @@ private:
     wxStaticBox* textArea;
 };
 
-// function prototypes
-int getTotalObjectCount(cJSON* root);
-int getTotalArrayCount(cJSON* root);
-int getLongestArrayLength(cJSON* root);
-int getShortestArrayLength(cJSON* root);
-int getTotalKeyCount(cJSON* root);
-
-// ----------------------------------------------------------------------------
-// constants
-// ----------------------------------------------------------------------------
+int getTotalObjectCount(cJSON* node);
+int getTotalArrayCount(cJSON* node);
+int getLongestArrayLength(cJSON* node);
+int getShortestArrayLength(cJSON* node);
+int getTotalKeyCount(cJSON* node);
+void appendSuffix(cJSON* node);
 
 // IDs for the controls and the menu commands
 enum
@@ -92,10 +80,6 @@ enum
     // (where it is special and put into the "Apple" menu)
     Minimal_About = wxID_ABOUT
 };
-
-// ----------------------------------------------------------------------------
-// event tables and other macros for wxWidgets
-// ----------------------------------------------------------------------------
 
 // the event tables connect the wxWidgets events with the functions (event
 // handlers) which process them. It can be also done at run-time, but for the
@@ -112,14 +96,6 @@ wxEND_EVENT_TABLE()
 // wxGetApp() which will return the reference of the right type (i.e. MyApp and
 // not wxApp)
 wxIMPLEMENT_APP(MyApp);
-
-// ============================================================================
-// implementation
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// the application class
-// ----------------------------------------------------------------------------
 
 // 'Main program' equivalent: the program execution "starts" here
 bool MyApp::OnInit()
@@ -141,10 +117,6 @@ bool MyApp::OnInit()
     // application would exit immediately.
     return true;
 }
-
-// ----------------------------------------------------------------------------
-// main frame
-// ----------------------------------------------------------------------------
 
 // frame constructor
 MyFrame::MyFrame(const wxString& title)
@@ -169,23 +141,26 @@ MyFrame::MyFrame(const wxString& title)
 
     // label
     wxStaticText* label = new wxStaticText(this, wxID_ANY,
-        wxT("Enter path to JSON file"),
-        wxPoint(10, 15), wxDefaultSize, wxALIGN_LEFT);
+        wxT("Enter path to JSON file"), wxPoint(10, 15), wxDefaultSize, wxALIGN_LEFT);
 
     // text field
     textField = new wxTextCtrl(this, wxID_ANY,
         wxEmptyString, wxPoint(160, 10), wxSize(125, 20));
 
     // button
-    wxButton* button = new wxButton(this, wxID_OK, wxT("Load"),
-        wxPoint(300, 10), wxDefaultSize);
+    wxButton* button = new wxButton(this, wxID_OK, 
+        wxT("Load"), wxPoint(300, 10), wxDefaultSize);
 
     // text area
     textArea = new wxStaticBox(this, wxID_ANY,
         wxT(""), wxPoint(20, 55), wxSize(360, 120));
 
-    // create a status bar just for fun (by default with 1 pane only)
-    CreateStatusBar(2);
+    // scroll bar
+
+    // PATH: /Users/joshuaparfitt/Development/basic.json
+    
+    // create a status bar (by default with 1 pane only)
+    CreateStatusBar(2); 
     SetStatusText("Welcome to vicit-diem!");
 }
 
@@ -223,36 +198,33 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
     if (fin)
     {
         // parse the JSON file
-        string file, line; 
+        string line, file; 
         while (getline(fin, line))
             file += line; 
         cJSON *root = cJSON_Parse(file.c_str());
 
-        // count the total number of objects
+        // get statistics
         int totalObjectCount = getTotalObjectCount(root);
-
-        // count the total number of arrays
         int totalArrayCount = getTotalArrayCount(root);
-
-        // return the length of the longest array
         int longestArrayLength = getLongestArrayLength(root);
-
-        // return the length of the shortest array
         int shortestArrayLength = getShortestArrayLength(root);
-
-        // count the total number of keys
         int totalKeyCount = getTotalKeyCount(root);
 
-        // Show statistics
+        // append the suffix "_PROCESSED" to each key
+        appendSuffix(root);
+
+        // print the JSON file
+        char* JSONfile = cJSON_Print(root);
+
+        // show statistics
         string stringStatistics = "Total Number of Objects: " + to_string(totalObjectCount) + "\n"
                                 + "Total Number of Arrays: " + to_string(totalArrayCount) + "\n"
                                 + "Length of Longest Array: " + to_string(longestArrayLength) + "\n"
                                 + "Length of Shortest Array: " + to_string(shortestArrayLength) + "\n"
-                                + "Total Number of Keys: " + to_string(totalKeyCount);
+                                + "Total Number of Keys: " + to_string(totalKeyCount) + "\n"
+                                + JSONfile;
         wxString wxStringStatistics(stringStatistics);
         JSONdump = new wxStaticText(textArea, wxID_ANY, wxStringStatistics, wxPoint(5, 5));
-
-        // print the contents of the JSON file
     }
     else
     {
@@ -262,13 +234,14 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
     fin.close();
 }
 
-int getTotalObjectCount(cJSON* root)
+// count the total number of objects
+int getTotalObjectCount(cJSON* node)
 {
     int objectCount = 0;
-    if (root->type == cJSON_Object)
+    if (node->type == cJSON_Object)
         objectCount++;
     
-    cJSON* child = root->child;
+    cJSON* child = node->child;
     while (child)
     {
         objectCount += getTotalObjectCount(child);
@@ -277,13 +250,14 @@ int getTotalObjectCount(cJSON* root)
     return objectCount;
 }
 
-int getTotalArrayCount(cJSON* root)
+// count the total number of arrays
+int getTotalArrayCount(cJSON* node)
 {
     int arrayCount = 0;
-    if (root->type == cJSON_Array)
+    if (node->type == cJSON_Array)
         arrayCount++;
 
-    cJSON* child = root->child;
+    cJSON* child = node->child;
     while (child)
     {
         arrayCount += getTotalArrayCount(child);
@@ -292,17 +266,18 @@ int getTotalArrayCount(cJSON* root)
     return arrayCount;
 }
 
-int getLongestArrayLength(cJSON* root)
+// get the length of the longest array
+int getLongestArrayLength(cJSON* node)
 {
     int longestArrayLength = 0;
-    if (root->type == cJSON_Array)
+    if (node->type == cJSON_Array)
     {
-        int arrayLength = cJSON_GetArraySize(root);
+        int arrayLength = cJSON_GetArraySize(node);
         if (arrayLength > longestArrayLength)
             longestArrayLength = arrayLength;
     }
     
-    cJSON* child = root->child;
+    cJSON* child = node->child;
     while (child)
     {
         int childLength = getLongestArrayLength(child);
@@ -313,17 +288,18 @@ int getLongestArrayLength(cJSON* root)
     return longestArrayLength;
 }
 
-int getShortestArrayLength(cJSON* root)
+// get the length of the shortest array
+int getShortestArrayLength(cJSON* node)
 {
     int shortestArrayLength = INT_MAX;
-    if (root->type == cJSON_Array)
+    if (node->type == cJSON_Array)
     {
-        int arrayLength = cJSON_GetArraySize(root);
+        int arrayLength = cJSON_GetArraySize(node);
         if (arrayLength < shortestArrayLength)
             shortestArrayLength = arrayLength;
     }
     
-    cJSON* child = root->child;
+    cJSON* child = node->child;
     while (child)
     {
         int childLength = getShortestArrayLength(child);
@@ -334,15 +310,16 @@ int getShortestArrayLength(cJSON* root)
     return shortestArrayLength;
 }
 
-int getTotalKeyCount(cJSON* root)
+ // count the total number of keys
+int getTotalKeyCount(cJSON* node)
 {
     int totalKeyCount = 0;
-    if (root->type == cJSON_Object) 
+    if (node->type == cJSON_Object) 
     {
-        cJSON* child = root->child;
+        cJSON* child = node->child;
         while (child) 
         {
-            if (!(child->string && child->string[0] == '['))
+            if (child->string)
             {
                 totalKeyCount++;
             }
@@ -350,9 +327,9 @@ int getTotalKeyCount(cJSON* root)
             child = child->next;
         }
     } 
-    else if (root->type == cJSON_Array) 
+    else if (node->type == cJSON_Array) 
     {
-        cJSON* child = root->child;
+        cJSON* child = node->child;
         while (child) 
         {
             totalKeyCount += getTotalKeyCount(child);
@@ -360,6 +337,35 @@ int getTotalKeyCount(cJSON* root)
         }
     } 
     return totalKeyCount;
+}
+
+// append the suffix "_PROCESSED" to each key
+void appendSuffix(cJSON* node)
+{
+    if (node->type == cJSON_Object) 
+    {
+        cJSON* child = node->child;
+        while (child) 
+        {
+            if (child->string)
+            {  
+                int size = strlen(child->string) + strlen("_PROCESSED") + 1;
+                child->string = (char*) realloc(child->string, size);
+                strcat(child->string, "_PROCESSED");
+            }
+            appendSuffix(child);
+            child = child->next;
+        }
+    } 
+    else if (node->type == cJSON_Array) 
+    {
+        cJSON* child = node->child;
+        while (child) 
+        {
+            appendSuffix(child);
+            child = child->next;
+        }
+    } 
 }
 
 // Path to JSON file:   /Users/joshuaparfitt/Development/basic.json
