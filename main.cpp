@@ -15,7 +15,7 @@
 #include "wx/textctrl.h"
 #include "wx/statbox.h"
 #include "wx/sizer.h"
-#include "wx/scrolbar.h"
+#include "wx/scrolwin.h"
 #include "../cJSON/cJSON.h"
 #include <string>
 #include <cstring>
@@ -60,6 +60,7 @@ private:
     wxTextCtrl* textField;
     wxStaticText* JSONdump;
     wxStaticBox* textArea;
+    wxScrolledWindow* scrolledWindow;
 };
 
 int getTotalObjectCount(cJSON* node);
@@ -137,7 +138,7 @@ MyFrame::MyFrame(const wxString& title)
     menuBar->Append(helpMenu, "&Help");
 
     // ... and attach this menu bar to the frame
-    SetMenuBar(menuBar);
+    SetMenuBar(menuBar); 
 
     // label
     wxStaticText* label = new wxStaticText(this, wxID_ANY,
@@ -156,8 +157,16 @@ MyFrame::MyFrame(const wxString& title)
         wxT(""), wxPoint(20, 55), wxSize(360, 120));
 
     // scroll bar
+    scrolledWindow = new wxScrolledWindow(textArea, wxID_ANY, 
+        wxPoint(0, 0), wxSize(400, 400), wxVSCROLL|wxHSCROLL);
 
-    // PATH: /Users/joshuaparfitt/Development/basic.json
+    int pixelsPerUnitX = 10;
+    int pixelsPerUnitY = 10;
+    int noUnitsX = 200;
+    int noUnitsY = 200;
+
+    scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
+        noUnitsX, noUnitsY);     
     
     // create a status bar (by default with 1 pane only)
     CreateStatusBar(2); 
@@ -224,12 +233,12 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
                                 + "Total Number of Keys: " + to_string(totalKeyCount) + "\n"
                                 + JSONfile;
         wxString wxStringStatistics(stringStatistics);
-        JSONdump = new wxStaticText(textArea, wxID_ANY, wxStringStatistics, wxPoint(5, 5));
+        JSONdump = new wxStaticText(scrolledWindow, wxID_ANY, wxStringStatistics, wxPoint(5, 5));
     }
     else
     {
         wxString errorMessage = wxString::Format(wxT("File %s was not found"), stringPath.c_str());
-        JSONdump = new wxStaticText(textArea, wxID_ANY, errorMessage, wxPoint(5, 5));
+        JSONdump = new wxStaticText(scrolledWindow, wxID_ANY, errorMessage, wxPoint(5, 5));
     }
     fin.close();
 }
@@ -370,4 +379,4 @@ void appendSuffix(cJSON* node)
 
 // Path to JSON file:   /Users/joshuaparfitt/Development/basic.json
 //                      /Users/joshuaparfitt/Development/task_should_be_recorded_but_wasnt.json  
-//                      /Users/joshuaparfitt/Development/no_name.json       
+//                      /Users/joshuaparfitt/Development/no_name.json     
