@@ -21,6 +21,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
 using namespace std;
 
 // for all others, include the necessary headers (this file is usually all you
@@ -62,6 +63,11 @@ private:
     wxStaticBox* textArea;
     wxScrolledWindow* scrolledWindow;
 };
+
+cJSON* getTaskDatabaseRecords(cJSON* node);
+cJSON* getTaskDatabase(cJSON* node);
+cJSON* getDailyRecord(cJSON* node);
+wxDateTime parseDate(string stringDate);
 
 int getTotalObjectCount(cJSON* node);
 int getTotalArrayCount(cJSON* node);
@@ -167,6 +173,10 @@ MyFrame::MyFrame(const wxString& title)
 
     scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
         noUnitsX, noUnitsY);     
+
+    // get name
+
+    // get the current date
     
     // create a status bar (by default with 1 pane only)
     CreateStatusBar(2); 
@@ -206,24 +216,36 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
 
     if (fin)
     {
-        // parse the JSON file
         string line, file; 
+
+        // read the JSON file
         while (getline(fin, line))
             file += line; 
-        cJSON *root = cJSON_Parse(file.c_str());
+        
+        // parse the JSON file
+        cJSON* root = cJSON_Parse(file.c_str());
+
+        // get the task database records
+        cJSON* taskDatabaseRecords = getTaskDatabaseRecords(root);
+
+        // get the task database corresponding to the current date
+        cJSON* taskDatabase = getTaskDatabase(taskDatabaseRecords);
+
+        // get the daily record
+        cJSON* dailyRecord = getDailyRecord(root);
 
         // get statistics
-        int totalObjectCount = getTotalObjectCount(root);
-        int totalArrayCount = getTotalArrayCount(root);
-        int longestArrayLength = getLongestArrayLength(root);
-        int shortestArrayLength = getShortestArrayLength(root);
-        int totalKeyCount = getTotalKeyCount(root);
+        int totalObjectCount = getTotalObjectCount(taskDatabaseRecords);
+        int totalArrayCount = getTotalArrayCount(taskDatabaseRecords);
+        int longestArrayLength = getLongestArrayLength(taskDatabaseRecords);
+        int shortestArrayLength = getShortestArrayLength(taskDatabaseRecords);
+        int totalKeyCount = getTotalKeyCount(taskDatabaseRecords);
 
         // append the suffix "_PROCESSED" to each key
-        appendSuffix(root);
+        appendSuffix(taskDatabaseRecords);
 
         // print the JSON file
-        char* JSONfile = cJSON_Print(root);
+        char* JSONfile = cJSON_Print(taskDatabase);
 
         // show statistics
         string stringStatistics = "Total Number of Objects: " + to_string(totalObjectCount) + "\n"
@@ -232,6 +254,7 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
                                 + "Length of Shortest Array: " + to_string(shortestArrayLength) + "\n"
                                 + "Total Number of Keys: " + to_string(totalKeyCount) + "\n"
                                 + JSONfile;
+
         wxString wxStringStatistics(stringStatistics);
         JSONdump = new wxStaticText(scrolledWindow, wxID_ANY, wxStringStatistics, wxPoint(5, 5));
     }
@@ -319,7 +342,7 @@ int getShortestArrayLength(cJSON* node)
     return shortestArrayLength;
 }
 
- // count the total number of keys
+// count the total number of keys
 int getTotalKeyCount(cJSON* node)
 {
     int totalKeyCount = 0;
@@ -329,9 +352,8 @@ int getTotalKeyCount(cJSON* node)
         while (child) 
         {
             if (child->string)
-            {
                 totalKeyCount++;
-            }
+
             totalKeyCount += getTotalKeyCount(child);
             child = child->next;
         }
@@ -356,27 +378,133 @@ void appendSuffix(cJSON* node)
         cJSON* child = node->child;
         while (child) 
         {
-            if (child->string)
-            {  
-                int size = strlen(child->string) + strlen("_PROCESSED") + 1;
-                child->string = (char*) realloc(child->string, size);
-                strcat(child->string, "_PROCESSED");
+            if (child->valuestring)
+            {
+                int size = strlen(child->valuestring) + strlen("_PROCESSED") + 1;
+                child->valuestring = (char*) realloc(child->valuestring, size);
+                strcat(child->valuestring, "_PROCESSED");
             }
             appendSuffix(child);
             child = child->next;
         }
-    } 
-    else if (node->type == cJSON_Array) 
+    }
+    else if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
-        while (child) 
+        while (child)
         {
             appendSuffix(child);
             child = child->next;
         }
-    } 
+    }
 }
 
-// Path to JSON file:   /Users/joshuaparfitt/Development/basic.json
-//                      /Users/joshuaparfitt/Development/task_should_be_recorded_but_wasnt.json  
-//                      /Users/joshuaparfitt/Development/no_name.json     
+// get the task database records
+cJSON* getTaskDatabaseRecords(cJSON* node)
+{
+    string taskDatabaseRecords = "taskdb_records";
+
+    if (node->type == cJSON_Array) 
+    {
+        cJSON* child = node->child;
+        while (child) 
+        {
+            getTaskDatabaseRecords(child);
+            child = child->next;
+        }
+    } 
+    else if (node->type == cJSON_Object) 
+    {
+        cJSON* child = node->child;
+        while (child) 
+        {
+            if (child->string == taskDatabaseRecords)
+                return child;
+            else 
+                getTaskDatabaseRecords(child);
+            
+            child = child->next;
+        }
+    }
+    return NULL;
+}
+
+// get the task database corresponding to the current date
+cJSON* getTaskDatabase(cJSON* node)
+{
+    string key = "date";
+    string value = "01/07/2021";
+    string taskDatabase = "taskdb";
+
+    if (node->type == cJSON_Array)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            if (getTaskDatabase(child))
+                return getTaskDatabase(child);
+
+            child = child->next;
+        }
+    }
+    else if (node->type == cJSON_Object)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            if (child->string == key && child->valuestring == value)
+            {
+                cJSON* prev = child->prev;
+                cJSON* next = child->next;
+
+                while (prev->string || next->valuestring)
+                {
+                    if (prev->string == taskDatabase)
+                        return prev;
+                    else if (next->string == taskDatabase)
+                        return next;
+                    
+                    prev = prev->prev;
+                    next = next->next;
+                }
+            }
+            else if (getTaskDatabase(child))
+                return getTaskDatabase(child);
+            
+            child = child->next;
+        }
+    }
+    return NULL;
+}
+
+// get the daily record
+cJSON* getDailyRecord(cJSON* node)
+{
+    string dailyRecord = "daily_record";
+
+    if (node->type == cJSON_Array) 
+    {
+        cJSON* child = node->child;
+        while (child) 
+        {
+            getDailyRecord(child);
+            child = child->next;
+        }
+    } 
+    else if (node->type == cJSON_Object) 
+    {
+        cJSON* child = node->child;
+        while (child) 
+        {
+            if (child->string == dailyRecord)
+                return child;  
+            else 
+                getDailyRecord(child);
+            
+            child = child->next;
+        }
+    }
+    return NULL;
+}
+
+// Path to JSON file:   /Users/joshuaparfitt/Development/many_schemas.json
