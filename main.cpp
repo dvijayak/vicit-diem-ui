@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <vector>
 using namespace std;
 
 // for all others, include the necessary headers (this file is usually all you
@@ -66,8 +67,10 @@ private:
 
 cJSON* getTaskDatabaseRecords(cJSON* node);
 cJSON* getTaskDatabase(cJSON* node);
+void getDailyIDs(cJSON* node, vector<string>& dailyIDs);
 cJSON* getDailyRecord(cJSON* node);
-wxDateTime parseDate(string stringDate);
+string getNextDate(cJSON* node);
+bool isAssignedDay(cJSON* node);
 
 int getTotalObjectCount(cJSON* node);
 int getTotalArrayCount(cJSON* node);
@@ -229,8 +232,12 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
         cJSON* taskDatabaseRecords = getTaskDatabaseRecords(root);
 
         // get the task database corresponding to the current date
-        cJSON* taskDatabase = getTaskDatabase(taskDatabaseRecords);
+        cJSON* taskDatabase = getTaskDatabase(root);
 
+        // get the daily IDs corresponding to the current day of the week
+        vector<string> dailyIDs;
+        getDailyIDs(taskDatabase, dailyIDs);
+        
         // get the daily record
         cJSON* dailyRecord = getDailyRecord(root);
 
@@ -432,8 +439,8 @@ cJSON* getTaskDatabaseRecords(cJSON* node)
 // get the task database corresponding to the current date
 cJSON* getTaskDatabase(cJSON* node)
 {
-    string key = "date";
-    string value = "01/07/2021";
+    wxDateTime currentDate = wxDateTime::Today();
+    string date = "date";
     string taskDatabase = "taskdb";
 
     if (node->type == cJSON_Array)
@@ -452,20 +459,29 @@ cJSON* getTaskDatabase(cJSON* node)
         cJSON* child = node->child;
         while (child)
         {
-            if (child->string == key && child->valuestring == value)
+            if (child->string == date)
             {
-                cJSON* prev = child->prev;
-                cJSON* next = child->next;
+                wxDateTime afterDate = NULL;
+                wxDateTime beforeDate = NULL;
 
-                while (prev->string || next->valuestring)
+                afterDate.ParseDate(child->valuestring);
+                beforeDate.ParseDate(getNextDate(node->next));
+
+                if (currentDate.IsSameDate(afterDate) || currentDate.IsStrictlyBetween(afterDate, beforeDate))
                 {
-                    if (prev->string == taskDatabase)
-                        return prev;
-                    else if (next->string == taskDatabase)
-                        return next;
-                    
-                    prev = prev->prev;
-                    next = next->next;
+                    cJSON* prev = child->prev;
+                    cJSON* next = child->next;
+
+                    while (prev->string || next->string)
+                    {
+                        if (prev->string == taskDatabase)
+                            return prev;
+                        else if (next->string == taskDatabase)
+                            return next;
+                        
+                        prev = prev->prev;
+                        next = next->next;
+                    }
                 }
             }
             else if (getTaskDatabase(child))
@@ -475,6 +491,57 @@ cJSON* getTaskDatabase(cJSON* node)
         }
     }
     return NULL;
+}
+
+// get the daily IDs corresponding to the current day of the week
+void getDailyIDs(cJSON* node, vector<string>& dailyIDs)
+{
+    wxDateTime today = wxDateTime::Today();
+
+    string dailyID = "daily_id";
+    string assignedDays = "assigned_days";
+
+    if (node->type == cJSON_Array)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            getDailyIDs(child, dailyIDs);
+            child = child->next;
+        }
+    }
+    else if (node->type == cJSON_Object)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            if (child->string == assignedDays)
+            {
+                if (isAssignedDay(child))
+                {   
+                    cJSON* prev = child->prev;
+                    cJSON* next = child->next;
+
+                    while (prev->string || next->string)
+                    {
+                        if (prev->string == dailyID)
+                        {
+                            dailyIDs.push_back(prev->valuestring);
+                            break;
+                        }
+                        else if (next->string == dailyID)
+                        {
+                            dailyIDs.push_back(prev->valuestring);
+                            break;
+                        }
+                        prev = prev->prev;
+                        next = next->next;
+                    }
+                }
+            }
+            child = child->next;
+        }
+    }
 }
 
 // get the daily record
@@ -505,6 +572,127 @@ cJSON* getDailyRecord(cJSON* node)
         }
     }
     return NULL;
+}
+
+string getNextDate(cJSON* node)
+{
+    string date = "date";
+
+    cJSON* child = node->child;
+    while (child)
+    {
+        if (child->string == date)
+            return child->valuestring;
+        
+        child = child->next;
+    }
+    return NULL;
+}
+
+bool isAssignedDay(cJSON* node)
+{
+    wxDateTime today = wxDateTime::Today();
+
+    string everyday = "Everyday", weekdays = "Weekdays", weekends = "Weekends";
+    
+    vector<string> everydayExpansion = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+    vector<string> weekdaysExpansion = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
+    vector<string> weekendsExpansion = {"Saturday", "Sunday"};
+
+    if (node->type == cJSON_Array)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            if (child->valuestring == everyday)
+            {
+                for (int i = 0; i < everydayExpansion.size(); i++)
+                {
+                    wxDateTime day = NULL;
+                    day.ParseDate(everydayExpansion[i]);
+
+                    if (today.IsSameDate(day))
+                        return true;
+                }
+            }
+            else if (child->valuestring == weekdays)
+            {
+                for (int i = 0; i < weekdaysExpansion.size(); i++)
+                {
+                    wxDateTime day = NULL;
+                    day.ParseDate(weekdaysExpansion[i]);
+
+                    if (today.IsSameDate(day))
+                        return true;
+                }
+            }
+            else if (child->valuestring == weekends)
+            {
+                for (int i = 0; i < weekendsExpansion.size(); i++)
+                {
+                    wxDateTime day = NULL;
+                    day.ParseDate(weekendsExpansion[i]);
+
+                    if (today.IsSameDate(day))
+                        return true;
+                }
+            }
+            else
+            {
+                wxDateTime day = NULL;
+                day.ParseDate(child->valuestring);
+
+                if (today.IsSameDate(day))
+                    return true;
+            }
+            child = child->next;
+        }
+    }
+    else
+    {
+        if (node->valuestring == everyday)
+        {
+            for (int i = 0; i < everydayExpansion.size(); i++)
+            {
+                wxDateTime day = NULL;
+                day.ParseDate(everydayExpansion[i]);
+
+                if (today.IsSameDate(day))
+                    return true;
+            }
+        }
+        else if (node->valuestring == weekdays)
+        {
+            for (int i = 0; i < weekdaysExpansion.size(); i++)
+            {
+                wxDateTime day = NULL;
+                day.ParseDate(weekdaysExpansion[i]);
+
+                if (today.IsSameDate(day))
+                    return true;
+            }
+        }
+        else if (node->valuestring == weekends)
+        {
+            for (int i = 0; i < weekendsExpansion.size(); i++)
+            {
+                wxDateTime day = NULL;
+                day.ParseDate(weekendsExpansion[i]);
+
+                if (today.IsSameDate(day))
+                    return true;
+            }
+        }
+        else
+        {
+            wxDateTime day = NULL;
+            day.ParseDate(node->valuestring);
+
+            if (today.IsSameDate(day))
+                return true;
+        }
+    }
+    return false;
 }
 
 // Path to JSON file:   /Users/joshuaparfitt/Development/many_schemas.json
