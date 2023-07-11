@@ -16,6 +16,7 @@
 #include "wx/statbox.h"
 #include "wx/sizer.h"
 #include "wx/scrolwin.h"
+#include "wx/checkbox.h"
 #include "../cJSON/cJSON.h"
 #include <string>
 #include <cstring>
@@ -67,7 +68,9 @@ private:
 
 cJSON* getTaskDatabaseRecords(cJSON* node);
 cJSON* getTaskDatabase(cJSON* node);
+void getTitles(cJSON* node, vector<string>& titles);
 void getDailyIDs(cJSON* node, vector<string>& dailyIDs);
+void showTasks(vector<string> titles);
 cJSON* getDailyRecord(cJSON* node);
 string getNextDate(cJSON* node);
 bool isAssignedDay(cJSON* node);
@@ -177,10 +180,6 @@ MyFrame::MyFrame(const wxString& title)
     scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
         noUnitsX, noUnitsY);     
 
-    // get name
-
-    // get the current date
-    
     // create a status bar (by default with 1 pane only)
     CreateStatusBar(2); 
     SetStatusText("Welcome to vicit-diem!");
@@ -234,10 +233,29 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
         // get the task database corresponding to the current date
         cJSON* taskDatabase = getTaskDatabase(root);
 
+        // get the titles corresponding to the current day of the week
+        vector<string> titles;
+        getTitles(taskDatabase, titles);
+
+        cout << endl << endl;
+        cout << "Titles" << endl;
+        cout << "----------" << endl;
+        for (int i = 0; i < titles.size(); i++)
+            cout << titles[i] << endl;
+
         // get the daily IDs corresponding to the current day of the week
         vector<string> dailyIDs;
         getDailyIDs(taskDatabase, dailyIDs);
-        
+
+        cout << endl;
+        cout << "Daily IDs" << endl;
+        cout << "----------" << endl;
+        for (int i = 0; i < dailyIDs.size(); i++)
+            cout << dailyIDs[i] << endl;
+
+        // show tasks for the day
+        showTasks(titles);
+
         // get the daily record
         cJSON* dailyRecord = getDailyRecord(root);
 
@@ -469,18 +487,13 @@ cJSON* getTaskDatabase(cJSON* node)
 
                 if (currentDate.IsSameDate(afterDate) || currentDate.IsStrictlyBetween(afterDate, beforeDate))
                 {
-                    cJSON* prev = child->prev;
-                    cJSON* next = child->next;
-
-                    while (prev->string || next->string)
+                    cJSON* child = node->child;
+                    while (child)
                     {
-                        if (prev->string == taskDatabase)
-                            return prev;
-                        else if (next->string == taskDatabase)
-                            return next;
-                        
-                        prev = prev->prev;
-                        next = next->next;
+                        if (child->string == taskDatabase)
+                            return child;
+
+                        child = child->next;
                     }
                 }
             }
@@ -491,13 +504,50 @@ cJSON* getTaskDatabase(cJSON* node)
         }
     }
     return NULL;
+} 
+
+// get the titles corresponding to the current day of the week
+void getTitles(cJSON* node, vector<string>& titles)
+{
+    string title = "title";
+    string assignedDays = "assigned_days";
+
+    if (node->type == cJSON_Array)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            getTitles(child, titles);
+            child = child->next;
+        }
+    }
+    else if (node->type == cJSON_Object)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            if (child->string == assignedDays)
+            {
+                if (isAssignedDay(child))
+                {
+                    cJSON* child = node->child;
+                    while (child)
+                    {
+                        if (child->string == title)
+                            titles.push_back(child->valuestring);
+                        
+                        child = child->next;
+                    }
+                }
+            }
+            child = child->next;
+        }
+    }
 }
 
 // get the daily IDs corresponding to the current day of the week
 void getDailyIDs(cJSON* node, vector<string>& dailyIDs)
 {
-    wxDateTime today = wxDateTime::Today();
-
     string dailyID = "daily_id";
     string assignedDays = "assigned_days";
 
@@ -519,23 +569,13 @@ void getDailyIDs(cJSON* node, vector<string>& dailyIDs)
             {
                 if (isAssignedDay(child))
                 {   
-                    cJSON* prev = child->prev;
-                    cJSON* next = child->next;
-
-                    while (prev->string || next->string)
+                    cJSON* child = node->child;
+                    while (child)
                     {
-                        if (prev->string == dailyID)
-                        {
-                            dailyIDs.push_back(prev->valuestring);
-                            break;
-                        }
-                        else if (next->string == dailyID)
-                        {
-                            dailyIDs.push_back(prev->valuestring);
-                            break;
-                        }
-                        prev = prev->prev;
-                        next = next->next;
+                        if (child->string == dailyID)
+                            dailyIDs.push_back(child->valuestring);
+                        
+                        child = child->next;
                     }
                 }
             }
@@ -572,6 +612,12 @@ cJSON* getDailyRecord(cJSON* node)
         }
     }
     return NULL;
+}
+
+// show tasks for the day
+void showTasks(vector<string> titles)
+{
+    // fill
 }
 
 string getNextDate(cJSON* node)
