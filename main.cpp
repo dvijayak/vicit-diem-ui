@@ -56,31 +56,29 @@ public:
     void OnQuit(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
     void OnButtonOK(wxCommandEvent& event);
+    void OnCheckbox(wxCommandEvent& event);
 
 private:
     // any class wishing to process wxWidgets events must use this macro
     wxDECLARE_EVENT_TABLE();
+    wxStaticText* label;
     wxTextCtrl* textField;
-    wxStaticText* JSONdump;
+    wxButton* button;
+    wxStaticText* name;
+    wxStaticText* date;
     wxStaticBox* textArea;
+    wxPanel* panel;
+    wxStaticText* staticText;
     wxScrolledWindow* scrolledWindow;
 };
 
-cJSON* getTaskDatabaseRecords(cJSON* node);
+string getName(cJSON* node);
 cJSON* getTaskDatabase(cJSON* node);
 void getTitles(cJSON* node, vector<string>& titles);
 void getDailyIDs(cJSON* node, vector<string>& dailyIDs);
-void showTasks(vector<string> titles);
-cJSON* getDailyRecord(cJSON* node);
+void showTasks(vector<string> titles, wxStaticText* staticText, wxScrolledWindow* scrolledWindow);
 string getNextDate(cJSON* node);
 bool isAssignedDay(cJSON* node);
-
-int getTotalObjectCount(cJSON* node);
-int getTotalArrayCount(cJSON* node);
-int getLongestArrayLength(cJSON* node);
-int getShortestArrayLength(cJSON* node);
-int getTotalKeyCount(cJSON* node);
-void appendSuffix(cJSON* node);
 
 // IDs for the controls and the menu commands
 enum
@@ -100,13 +98,14 @@ enum
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_MENU(Minimal_Quit,  MyFrame::OnQuit)
     EVT_MENU(Minimal_About, MyFrame::OnAbout)
-    EVT_BUTTON(wxID_OK, MyFrame::OnButtonOK)
+    EVT_BUTTON(wxEVT_BUTTON, MyFrame::OnButtonOK)
+    EVT_CHECKBOX(wxEVT_CHECKBOX, MyFrame::OnCheckbox)
 wxEND_EVENT_TABLE()
 
 // create a new application object: this macro will allow wxWidgets to create
 // the application object during program execution (it's better than using a
 // static object for many reasons) and also implements the accessor function
-// wxGetApp() which will return the reference of the right type (i.e. MyApp and
+// wxGetApp() which will return the reference of the right type (count.e. MyApp and
 // not wxApp)
 wxIMPLEMENT_APP(MyApp);
 
@@ -153,7 +152,7 @@ MyFrame::MyFrame(const wxString& title)
     SetMenuBar(menuBar); 
 
     // label
-    wxStaticText* label = new wxStaticText(this, wxID_ANY,
+    label = new wxStaticText(this, wxID_ANY,
         wxT("Enter path to JSON file"), wxPoint(10, 15), wxDefaultSize, wxALIGN_LEFT);
 
     // text field
@@ -161,24 +160,33 @@ MyFrame::MyFrame(const wxString& title)
         wxEmptyString, wxPoint(160, 10), wxSize(125, 20));
 
     // button
-    wxButton* button = new wxButton(this, wxID_OK, 
+    button = new wxButton(this, wxEVT_BUTTON, 
         wxT("Load"), wxPoint(300, 10), wxDefaultSize);
 
-    // text area
-    textArea = new wxStaticBox(this, wxID_ANY,
-        wxT(""), wxPoint(20, 55), wxSize(360, 120));
+    // date
+    wxDateTime wxDate = wxDateTime::Today();
 
-    // scroll bar
-    scrolledWindow = new wxScrolledWindow(textArea, wxID_ANY, 
-        wxPoint(0, 0), wxSize(400, 400), wxVSCROLL|wxHSCROLL);
+    wxString wxStringDay = wxDate.GetWeekDayName(wxDate.GetWeekDay(), wxDate.Name_Full); 
+    wxString wxStringDate = wxDate.FormatDate();
 
-    int pixelsPerUnitX = 10;
+    date = new wxStaticText(this, wxID_ANY,
+        (wxStringDay + wxT(" ") + wxStringDate), wxPoint(165, 40), wxDefaultSize);
+
+    // panel
+    panel = new wxPanel(this, wxID_ANY,
+        wxPoint(20, 70), wxSize(360, 120));
+
+    // scrolled window
+    scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
+        wxPoint(0, 0), wxSize(360, 120), wxVSCROLL);
+
+    int pixelsPerUnitX = 0;
     int pixelsPerUnitY = 10;
-    int noUnitsX = 200;
-    int noUnitsY = 200;
+    int noUnitsX = 0;
+    int noUnitsY = 20;
 
     scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
-        noUnitsX, noUnitsY);     
+        noUnitsX, noUnitsY);   
 
     // create a status bar (by default with 1 pane only)
     CreateStatusBar(2); 
@@ -227,8 +235,12 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
         // parse the JSON file
         cJSON* root = cJSON_Parse(file.c_str());
 
-        // get the task database records
-        cJSON* taskDatabaseRecords = getTaskDatabaseRecords(root);
+        // show the name
+        string stringName = getName(root);
+        wxString wxStringName(stringName);
+
+        name = new wxStaticText(this, wxID_ANY,
+           wxStringName, wxPoint(95, 40), wxDefaultSize); 
 
         // get the task database corresponding to the current date
         cJSON* taskDatabase = getTaskDatabase(root);
@@ -237,217 +249,43 @@ void MyFrame::OnButtonOK(wxCommandEvent& event)
         vector<string> titles;
         getTitles(taskDatabase, titles);
 
-        cout << endl << endl;
-        cout << "Titles" << endl;
-        cout << "----------" << endl;
-        for (int i = 0; i < titles.size(); i++)
-            cout << titles[i] << endl;
-
         // get the daily IDs corresponding to the current day of the week
         vector<string> dailyIDs;
         getDailyIDs(taskDatabase, dailyIDs);
 
-        cout << endl;
-        cout << "Daily IDs" << endl;
-        cout << "----------" << endl;
-        for (int i = 0; i < dailyIDs.size(); i++)
-            cout << dailyIDs[i] << endl;
-
         // show tasks for the day
-        showTasks(titles);
-
-        // get the daily record
-        cJSON* dailyRecord = getDailyRecord(root);
-
-        // get statistics
-        int totalObjectCount = getTotalObjectCount(taskDatabaseRecords);
-        int totalArrayCount = getTotalArrayCount(taskDatabaseRecords);
-        int longestArrayLength = getLongestArrayLength(taskDatabaseRecords);
-        int shortestArrayLength = getShortestArrayLength(taskDatabaseRecords);
-        int totalKeyCount = getTotalKeyCount(taskDatabaseRecords);
-
-        // append the suffix "_PROCESSED" to each key
-        appendSuffix(taskDatabaseRecords);
-
-        // print the JSON file
-        char* JSONfile = cJSON_Print(taskDatabase);
-
-        // show statistics
-        string stringStatistics = "Total Number of Objects: " + to_string(totalObjectCount) + "\n"
-                                + "Total Number of Arrays: " + to_string(totalArrayCount) + "\n"
-                                + "Length of Longest Array: " + to_string(longestArrayLength) + "\n"
-                                + "Length of Shortest Array: " + to_string(shortestArrayLength) + "\n"
-                                + "Total Number of Keys: " + to_string(totalKeyCount) + "\n"
-                                + JSONfile;
-
-        wxString wxStringStatistics(stringStatistics);
-        JSONdump = new wxStaticText(scrolledWindow, wxID_ANY, wxStringStatistics, wxPoint(5, 5));
+        showTasks(titles, staticText, scrolledWindow);
     }
     else
     {
         wxString errorMessage = wxString::Format(wxT("File %s was not found"), stringPath.c_str());
-        JSONdump = new wxStaticText(scrolledWindow, wxID_ANY, errorMessage, wxPoint(5, 5));
+        staticText = new wxStaticText(scrolledWindow, wxID_ANY, errorMessage, wxPoint(5, 5));
     }
     fin.close();
 }
 
-// count the total number of objects
-int getTotalObjectCount(cJSON* node)
+// get the name
+string getName(cJSON* node)
 {
-    int objectCount = 0;
-    if (node->type == cJSON_Object)
-        objectCount++;
+    string name = "name";
     
-    cJSON* child = node->child;
-    while (child)
-    {
-        objectCount += getTotalObjectCount(child);
-        child = child->next;
-    }
-    return objectCount;
-}
-
-// count the total number of arrays
-int getTotalArrayCount(cJSON* node)
-{
-    int arrayCount = 0;
     if (node->type == cJSON_Array)
-        arrayCount++;
-
-    cJSON* child = node->child;
-    while (child)
-    {
-        arrayCount += getTotalArrayCount(child);
-        child = child->next;
-    }
-    return arrayCount;
-}
-
-// get the length of the longest array
-int getLongestArrayLength(cJSON* node)
-{
-    int longestArrayLength = 0;
-    if (node->type == cJSON_Array)
-    {
-        int arrayLength = cJSON_GetArraySize(node);
-        if (arrayLength > longestArrayLength)
-            longestArrayLength = arrayLength;
-    }
-    
-    cJSON* child = node->child;
-    while (child)
-    {
-        int childLength = getLongestArrayLength(child);
-        if (childLength > longestArrayLength)
-            longestArrayLength = childLength;
-        child = child->next;
-    }
-    return longestArrayLength;
-}
-
-// get the length of the shortest array
-int getShortestArrayLength(cJSON* node)
-{
-    int shortestArrayLength = INT_MAX;
-    if (node->type == cJSON_Array)
-    {
-        int arrayLength = cJSON_GetArraySize(node);
-        if (arrayLength < shortestArrayLength)
-            shortestArrayLength = arrayLength;
-    }
-    
-    cJSON* child = node->child;
-    while (child)
-    {
-        int childLength = getShortestArrayLength(child);
-        if (childLength < shortestArrayLength)
-            shortestArrayLength = childLength;
-        child = child->next;
-    }
-    return shortestArrayLength;
-}
-
-// count the total number of keys
-int getTotalKeyCount(cJSON* node)
-{
-    int totalKeyCount = 0;
-    if (node->type == cJSON_Object) 
-    {
-        cJSON* child = node->child;
-        while (child) 
-        {
-            if (child->string)
-                totalKeyCount++;
-
-            totalKeyCount += getTotalKeyCount(child);
-            child = child->next;
-        }
-    } 
-    else if (node->type == cJSON_Array) 
-    {
-        cJSON* child = node->child;
-        while (child) 
-        {
-            totalKeyCount += getTotalKeyCount(child);
-            child = child->next;
-        }
-    } 
-    return totalKeyCount;
-}
-
-// append the suffix "_PROCESSED" to each key
-void appendSuffix(cJSON* node)
-{
-    if (node->type == cJSON_Object) 
-    {
-        cJSON* child = node->child;
-        while (child) 
-        {
-            if (child->valuestring)
-            {
-                int size = strlen(child->valuestring) + strlen("_PROCESSED") + 1;
-                child->valuestring = (char*) realloc(child->valuestring, size);
-                strcat(child->valuestring, "_PROCESSED");
-            }
-            appendSuffix(child);
-            child = child->next;
-        }
-    }
-    else if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
         while (child)
         {
-            appendSuffix(child);
+            getName(child);
             child = child->next;
         }
     }
-}
-
-// get the task database records
-cJSON* getTaskDatabaseRecords(cJSON* node)
-{
-    string taskDatabaseRecords = "taskdb_records";
-
-    if (node->type == cJSON_Array) 
+    else if (node->type == cJSON_Object)
     {
         cJSON* child = node->child;
-        while (child) 
+        while (child)
         {
-            getTaskDatabaseRecords(child);
-            child = child->next;
-        }
-    } 
-    else if (node->type == cJSON_Object) 
-    {
-        cJSON* child = node->child;
-        while (child) 
-        {
-            if (child->string == taskDatabaseRecords)
-                return child;
-            else 
-                getTaskDatabaseRecords(child);
-            
+            if (child->string == name)
+                return child->valuestring;
+
             child = child->next;
         }
     }
@@ -505,6 +343,21 @@ cJSON* getTaskDatabase(cJSON* node)
     }
     return NULL;
 } 
+
+string getNextDate(cJSON* node)
+{
+    string date = "date";
+
+    cJSON* child = node->child;
+    while (child)
+    {
+        if (child->string == date)
+            return child->valuestring;
+        
+        child = child->next;
+    }
+    return NULL;
+}
 
 // get the titles corresponding to the current day of the week
 void getTitles(cJSON* node, vector<string>& titles)
@@ -584,57 +437,6 @@ void getDailyIDs(cJSON* node, vector<string>& dailyIDs)
     }
 }
 
-// get the daily record
-cJSON* getDailyRecord(cJSON* node)
-{
-    string dailyRecord = "daily_record";
-
-    if (node->type == cJSON_Array) 
-    {
-        cJSON* child = node->child;
-        while (child) 
-        {
-            getDailyRecord(child);
-            child = child->next;
-        }
-    } 
-    else if (node->type == cJSON_Object) 
-    {
-        cJSON* child = node->child;
-        while (child) 
-        {
-            if (child->string == dailyRecord)
-                return child;  
-            else 
-                getDailyRecord(child);
-            
-            child = child->next;
-        }
-    }
-    return NULL;
-}
-
-// show tasks for the day
-void showTasks(vector<string> titles)
-{
-    // fill
-}
-
-string getNextDate(cJSON* node)
-{
-    string date = "date";
-
-    cJSON* child = node->child;
-    while (child)
-    {
-        if (child->string == date)
-            return child->valuestring;
-        
-        child = child->next;
-    }
-    return NULL;
-}
-
 bool isAssignedDay(cJSON* node)
 {
     wxDateTime today = wxDateTime::Today();
@@ -652,10 +454,10 @@ bool isAssignedDay(cJSON* node)
         {
             if (child->valuestring == everyday)
             {
-                for (int i = 0; i < everydayExpansion.size(); i++)
+                for (int count = 0; count < everydayExpansion.size(); count++)
                 {
                     wxDateTime day = NULL;
-                    day.ParseDate(everydayExpansion[i]);
+                    day.ParseDate(everydayExpansion[count]);
 
                     if (today.IsSameDate(day))
                         return true;
@@ -663,10 +465,10 @@ bool isAssignedDay(cJSON* node)
             }
             else if (child->valuestring == weekdays)
             {
-                for (int i = 0; i < weekdaysExpansion.size(); i++)
+                for (int count = 0; count < weekdaysExpansion.size(); count++)
                 {
                     wxDateTime day = NULL;
-                    day.ParseDate(weekdaysExpansion[i]);
+                    day.ParseDate(weekdaysExpansion[count]);
 
                     if (today.IsSameDate(day))
                         return true;
@@ -674,10 +476,10 @@ bool isAssignedDay(cJSON* node)
             }
             else if (child->valuestring == weekends)
             {
-                for (int i = 0; i < weekendsExpansion.size(); i++)
+                for (int count = 0; count < weekendsExpansion.size(); count++)
                 {
                     wxDateTime day = NULL;
-                    day.ParseDate(weekendsExpansion[i]);
+                    day.ParseDate(weekendsExpansion[count]);
 
                     if (today.IsSameDate(day))
                         return true;
@@ -698,10 +500,10 @@ bool isAssignedDay(cJSON* node)
     {
         if (node->valuestring == everyday)
         {
-            for (int i = 0; i < everydayExpansion.size(); i++)
+            for (int count = 0; count < everydayExpansion.size(); count++)
             {
                 wxDateTime day = NULL;
-                day.ParseDate(everydayExpansion[i]);
+                day.ParseDate(everydayExpansion[count]);
 
                 if (today.IsSameDate(day))
                     return true;
@@ -709,10 +511,10 @@ bool isAssignedDay(cJSON* node)
         }
         else if (node->valuestring == weekdays)
         {
-            for (int i = 0; i < weekdaysExpansion.size(); i++)
+            for (int count = 0; count < weekdaysExpansion.size(); count++)
             {
                 wxDateTime day = NULL;
-                day.ParseDate(weekdaysExpansion[i]);
+                day.ParseDate(weekdaysExpansion[count]);
 
                 if (today.IsSameDate(day))
                     return true;
@@ -720,10 +522,10 @@ bool isAssignedDay(cJSON* node)
         }
         else if (node->valuestring == weekends)
         {
-            for (int i = 0; i < weekendsExpansion.size(); i++)
+            for (int count = 0; count < weekendsExpansion.size(); count++)
             {
                 wxDateTime day = NULL;
-                day.ParseDate(weekendsExpansion[i]);
+                day.ParseDate(weekendsExpansion[count]);
 
                 if (today.IsSameDate(day))
                     return true;
@@ -739,6 +541,29 @@ bool isAssignedDay(cJSON* node)
         }
     }
     return false;
+}
+
+// show the tasks for the day
+void showTasks(vector<string> titles, wxStaticText* staticText, wxScrolledWindow* scrolledWindow)
+{
+    int position = 0;
+
+    for (int count = 0; count < titles.size(); count++)
+    {
+        wxString wxStringTask(titles[count]);
+
+        wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
+            wxStringTask, wxPoint(0, position), wxDefaultSize);
+
+        checkbox->SetValue(false);
+
+        position += 30;
+    }
+}
+
+void MyFrame::OnCheckbox(wxCommandEvent& event)
+{
+    cout << "Success ";
 }
 
 // Path to JSON file:   /Users/joshuaparfitt/Development/many_schemas.json
