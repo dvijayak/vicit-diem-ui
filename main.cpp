@@ -60,17 +60,17 @@ public:
     void OnSaveButton(wxCommandEvent& event);
 
     string getName(cJSON* node);
+
     cJSON* getTaskDatabase(cJSON* node);
     string getNextDate(cJSON* node);
-    cJSON* getDailyRecord(cJSON* node);
-    cJSON* getDate(cJSON* node);
+
     void getTitles(cJSON* node);
     void getDailyIDs(cJSON* node);
     bool isAssignedDay(cJSON* node);
-    void updateStatus(cJSON* node, string dailyID);
 
-    void showTasks(vector<string> titles);
-    cJSON* getStatus(cJSON* node, string dailyID);
+    void showTasks(vector<string>titles);
+    cJSON* checkStatus(cJSON* node, string dailyID);
+    void updateStatus(string dailyID);
 
 private:
     // any class wishing to process wxWidgets events must use this macro
@@ -82,19 +82,18 @@ private:
     wxButton* loadButton;
     wxStaticText* name;
     wxStaticText* date;
-    wxStaticBox* textArea;
     wxPanel* panel;
     wxStaticText* staticText;
     wxScrolledWindow* scrolledWindow;
     wxButton* saveButton;
 
     cJSON* root;
-    string stringPath;
+    string filePath;
 
     vector<string> titles;
     vector<string> dailyIDs;
-    
     vector<wxCheckBox*> checkboxes;
+    vector<cJSON*> statuses;
 };
 
 // IDs for the controls and the menu commands
@@ -241,10 +240,10 @@ void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
 void MyFrame::OnLoadButton(wxCommandEvent& event)
 {
     wxString wxStringPath = textField->GetValue();
-    stringPath = wxStringPath.ToStdString();
+    filePath = wxStringPath.ToStdString();
 
     ifstream fin;
-    fin.open(stringPath);
+    fin.open(filePath);
 
     if (fin)
     {
@@ -257,12 +256,11 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
         // parse the JSON file
         root = cJSON_Parse(file.c_str());
 
-        // show the name
-        string stringName = getName(root);
-        wxString wxStringName(stringName);
+        // get the name
+        wxString fullName(getName(root));
 
         name = new wxStaticText(this, wxID_ANY,
-           wxStringName, wxPoint(95, 40), wxDefaultSize); 
+           fullName, wxPoint(95, 40), wxDefaultSize);
 
         // get the task database corresponding to the current date
         cJSON* taskDatabase = getTaskDatabase(root);
@@ -278,7 +276,7 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
     }
     else
     {
-        wxString errorMessage = wxString::Format(wxT("File %s was not found"), stringPath.c_str());
+        wxString errorMessage = wxString::Format(wxT("File %s was not found"), filePath.c_str());
         staticText = new wxStaticText(scrolledWindow, wxID_ANY, errorMessage, wxPoint(5, 5));
     }
     fin.close();
@@ -564,31 +562,64 @@ bool MyFrame::isAssignedDay(cJSON* node)
     return false;
 }
 
-// show the tasks for the day
 void MyFrame::showTasks(vector<string> titles)
 {
     int position = 0;
 
     for (int count = 0; count < titles.size(); count++)
     {
-        wxString wxStringTitle(titles[count]);
+        wxString title(titles[count]);
 
         wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
-            wxStringTitle, wxPoint(0, position), wxDefaultSize);
-
-        cJSON* dailyRecord = getDailyRecord(root);
-        cJSON* date = getDate(dailyRecord);
-        cJSON* status = getStatus(date, dailyIDs[count]);
+            title, wxPoint(0, position), wxDefaultSize);
+        
+        cJSON* status = checkStatus(root, dailyIDs[count]);
 
         if (status->valueint == 0)
             checkbox->SetValue(false);
         else if (status->valueint == 1)
             checkbox->SetValue(true);
-
+    
         checkboxes.push_back(checkbox);
+        statuses.push_back(status);
 
         position += 30;
     }
+}
+
+cJSON* MyFrame::checkStatus(cJSON* node, string dailyID)
+{
+    wxDateTime today = wxDateTime::Today();
+    string dailyRecord = "daily_record";
+
+    cJSON* child = node->child;
+    while (child)
+    {
+        if (child->string == dailyRecord)
+        {
+            cJSON* grandChild = child->child;
+            while (grandChild)
+            {
+                wxDateTime date = NULL;
+                date.ParseDate(grandChild->string);
+
+                if (today.IsSameDate(date))
+                {
+                    cJSON* greatGrandChild = grandChild->child;
+                    while (greatGrandChild)
+                    {
+                        if (greatGrandChild->string == dailyID)
+                            return greatGrandChild;
+
+                        greatGrandChild = greatGrandChild->next;
+                    }
+                }
+                grandChild = grandChild->next;
+            }
+        }
+        child = child->next;
+    }
+    return NULL;
 }
 
 void MyFrame::OnCheckbox(wxCommandEvent& event)
@@ -598,90 +629,31 @@ void MyFrame::OnCheckbox(wxCommandEvent& event)
     for (int count = 0; count < checkboxes.size(); count++)
     {
         if (checkbox == checkboxes[count])
+            updateStatus(dailyIDs[count]);
+    }
+}
+
+void MyFrame::updateStatus(string dailyID)
+{
+    for (int count = 0; count < dailyIDs.size(); count++)
+    {
+        if (dailyID == dailyIDs[count])
         {
-            cJSON* dailyRecord = getDailyRecord(root);
-            cJSON* date = getDate(dailyRecord);
-            updateStatus(date, dailyIDs[count]);
+            if (statuses[count]->valueint == 0)
+                cJSON_SetNumberValue(statuses[count], 1);
+            else if (statuses[count]->valueint == 1)
+                cJSON_SetNumberValue(statuses[count], 0);
         }
-    }
-}
-
-// get the daily record
-cJSON* MyFrame::getDailyRecord(cJSON* node)
-{
-    wxDateTime currentDate = wxDateTime::Today();
-    string dailyRecord = "daily_record";
-    
-    if (node->type == cJSON_Object)
-    {
-        cJSON* child = node->child;
-        while (child)
-        {
-            if (child->string == dailyRecord)
-                return child;
-
-            child = child->next;
-        }
-    }
-    return NULL;
-}
-
-cJSON* MyFrame::getDate(cJSON* node)
-{
-    wxDateTime today = wxDateTime::Today();
-
-    cJSON* child = node->child;
-    while (child)
-    {
-        wxDateTime date = NULL;
-        date.ParseDate(child->string);
-
-        if (today.IsSameDate(date))
-            return child;
-        
-        child = child->next;
-    }
-    return NULL;
-}
-
-cJSON* MyFrame::getStatus(cJSON* node, string dailyID)
-{
-    cJSON* child = node->child;
-    while (child)
-    {
-        if (child->string == dailyID)
-            return child;
-
-        child = child->next;
-    }
-    return NULL;
-}
-
-void MyFrame::updateStatus(cJSON* node, string dailyID)
-{
-    cJSON* child = node->child;
-    while (child)
-    {
-        if (child->string == dailyID)
-        {
-            if (child->valueint == 0)
-                cJSON_SetNumberValue(child, 1);
-            else if (child->valueint == 1)
-                cJSON_SetNumberValue(child, 0);
-        }
-        child = child->next;
     }
 }
 
 void MyFrame::OnSaveButton(wxCommandEvent& event)
 {
     ofstream fout;
+    fout.open(filePath);
     
-    fout.open(stringPath);
-    
-    char* JSONfile = cJSON_Print(root);
-
-    fout << JSONfile;
+    char* file = cJSON_Print(root);
+    fout << file;
 
     fout.close();
 }
