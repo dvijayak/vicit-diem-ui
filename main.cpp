@@ -41,14 +41,18 @@ class MyFrame : public wxFrame
 
         string getName(cJSON* node);
         cJSON* getTaskDatabase(cJSON* node);
+        cJSON* getTodaysRecord(cJSON* node);
         string getNextDate(cJSON* node);
 
         void getTitles(cJSON* node);
         void getDailyIDs(cJSON* node);
         bool isAssignedDay(cJSON* node);
 
+        void addMissingTasks(cJSON* node);
+        void removeExtraTasks(cJSON* node);
         void showTasks(vector<string>titles);
-        cJSON* checkStatus(cJSON* node, string dailyID);
+
+        cJSON* getStatus(cJSON* node, string dailyID);
         void updateStatus(string dailyID);
 
     private:
@@ -61,6 +65,7 @@ class MyFrame : public wxFrame
         wxDateTime today = wxDateTime::Today();
         string filePath;
         cJSON* root;
+        cJSON* todaysRecord;
 
         vector<string> titles;
         vector<string> dailyIDs;
@@ -182,10 +187,13 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
             statusSet.clear();
         }
         cJSON* taskDatabase = getTaskDatabase(root);
+        todaysRecord = getTodaysRecord(root);
 
         getTitles(taskDatabase);
         getDailyIDs(taskDatabase);
 
+        addMissingTasks(todaysRecord);
+        removeExtraTasks(todaysRecord);
         showTasks(titles);
 
         count++;
@@ -477,34 +485,7 @@ bool MyFrame::isAssignedDay(cJSON* node)
     return false;
 }
 
-void MyFrame::showTasks(vector<string> titles)
-{
-    int position = 0;
-
-    for (int count = 0; count < titles.size(); count++)
-    {
-        wxString title(titles[count]);
-        
-        cJSON* status = checkStatus(root, dailyIDs[count]);
-
-        if (status)
-        {
-            wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
-                title, wxPoint(0, position), wxDefaultSize);
-
-            if (status->valueint == 0)
-                checkbox->SetValue(false);
-            else if (status->valueint == 1)
-                checkbox->SetValue(true);
-        
-            checkboxList.push_back(checkbox);
-            statusSet.push_back(status);
-        }
-        position += 30;
-    }
-}
-
-cJSON* MyFrame::checkStatus(cJSON* node, string dailyID)
+cJSON* MyFrame::getTodaysRecord(cJSON* node)
 {
     string dailyRecord = "daily_record";
 
@@ -520,19 +501,87 @@ cJSON* MyFrame::checkStatus(cJSON* node, string dailyID)
                 date.ParseDate(grandChild->string);
 
                 if (today.IsSameDate(date))
-                {
-                    cJSON* greatGrandChild = grandChild->child;
-                    while (greatGrandChild)
-                    {
-                        if (greatGrandChild->string == dailyID)
-                            return greatGrandChild;
-
-                        greatGrandChild = greatGrandChild->next;
-                    }
-                }
+                    return grandChild;
+                
                 grandChild = grandChild->next;
             }
         }
+        child = child->next;
+    }
+    return NULL;
+}
+
+void MyFrame::addMissingTasks(cJSON* node)
+{
+    for (int count = 0; count < dailyIDs.size(); count++)
+    {
+        bool found = false;
+
+        cJSON* child = node->child;
+        while (child)
+        {
+            if (dailyIDs[count] == child->string)
+                found = true;
+
+            child = child->next;
+        }
+        if (!found)
+            cJSON_AddItemToObject(node, dailyIDs[count].c_str(), cJSON_CreateNumber(0));
+    }
+}
+
+void MyFrame::removeExtraTasks(cJSON* node)
+{
+    cJSON* child = node->child;
+    while (child)
+    {
+        bool found = false;
+
+        for (int count = 0; count < dailyIDs.size(); count++)
+        {
+            if (child->string == dailyIDs[count])
+                found = true;
+        }
+        if (!found)
+            cJSON_DeleteItemFromObject(node, child->string);
+
+        child = child->next;
+    }
+}
+
+void MyFrame::showTasks(vector<string> titles)
+{
+    int position = 0;
+
+    for (int count = 0; count < titles.size(); count++)
+    {
+        wxString title(titles[count]);
+        
+        cJSON* status = getStatus(todaysRecord, dailyIDs[count]);
+        
+        wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
+            title, wxPoint(0, position), wxDefaultSize);
+
+        if (status->valueint == 0)
+            checkbox->SetValue(false);
+        else if (status->valueint == 1)
+            checkbox->SetValue(true);
+    
+        checkboxList.push_back(checkbox);
+        statusSet.push_back(status);
+       
+        position += 30;
+    }
+}
+
+cJSON* MyFrame::getStatus(cJSON* node, string dailyID)
+{
+    cJSON* child = node->child;
+    while (child)
+    {
+        if (child->string == dailyID)
+            return child;
+
         child = child->next;
     }
     return NULL;
@@ -565,11 +614,21 @@ void MyFrame::updateStatus(string dailyID)
 
 void MyFrame::OnSaveButton(wxCommandEvent& event)
 {
-    ofstream fout;
-    fout.open(filePath);
-    
-    char* file = cJSON_Print(root);
-    fout << file;
+    if (root)
+    {
+        ofstream fout;
+        fout.open(filePath);
 
-    fout.close();
+        char* file = cJSON_Print(root);
+        fout << file;
+
+        fout.close();
+    }
+    else
+    {
+        wxString errorMessage("The file must first be loaded before it can be saved");
+
+        wxStaticText* errorMessageLabel = new wxStaticText(scrolledWindow, wxID_ANY, 
+            errorMessage, wxPoint(5, 5));
+    }
 }
