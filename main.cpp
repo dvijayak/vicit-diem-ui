@@ -1,14 +1,8 @@
 /////////////////////////////////////////////////////////////////////////////
 // Name:        main.cpp
-// Purpose:     UI for the vicit-diem task tracking tool
-// Author:      Julian Smart
-// Modified by: Joshua Parfitt
-// Created:     04/01/98
-// Copyright:   (c) Julian Smart
-// Licence:     wxWindows licence
+// Purpose:     UI for the vicit-diem task-tracking tool
 /////////////////////////////////////////////////////////////////////////////
 
-// For compilers that support precompilation, includes "wx/wx.h".
 #include "wx/wxprec.h"
 #include "wx/button.h"
 #include "wx/stattext.h"
@@ -26,174 +20,106 @@
 #include <vector>
 using namespace std;
 
-// for all others, include the necessary headers (this file is usually all you
-// need because it includes almost all "standard" wxWidgets headers)
 #ifndef WX_PRECOMP
     #include "wx/wx.h"
 #endif
 
-// define a new application type, each program should derive a class from wxApp
 class MyApp : public wxApp
 {
-public:
-    // override base class virtuals
-    // ----------------------------
-
-    // this one is called on application startup and is a good place for the app
-    // initialization (doing it here and not in the ctor allows to have an error
-    // return: if OnInit() returns false, the application terminates)
-    virtual bool OnInit() wxOVERRIDE;
+    public:
+        virtual bool OnInit() wxOVERRIDE;
 };
 
-// define a new frame type: this is going to be our main frame
 class MyFrame : public wxFrame
 {
-public:
-    // constructor
-    MyFrame(const wxString& title);
+    public:
+        MyFrame(const wxString& title);
 
-    // event handlers
-    void OnQuit(wxCommandEvent& event);
-    void OnAbout(wxCommandEvent& event);
-    void OnLoadButton(wxCommandEvent& event);
-    void OnCheckbox(wxCommandEvent& event);
-    void OnSaveButton(wxCommandEvent& event);
+        void OnLoadButton(wxCommandEvent& event);
+        void OnCheckbox(wxCommandEvent& event);
+        void OnSaveButton(wxCommandEvent& event);
 
-    string getName(cJSON* node);
+        string getName(cJSON* node);
+        cJSON* getTaskDatabase(cJSON* node);
+        string getNextDate(cJSON* node);
 
-    cJSON* getTaskDatabase(cJSON* node);
-    string getNextDate(cJSON* node);
+        void getTitles(cJSON* node);
+        void getDailyIDs(cJSON* node);
+        bool isAssignedDay(cJSON* node);
 
-    void getTitles(cJSON* node);
-    void getDailyIDs(cJSON* node);
-    bool isAssignedDay(cJSON* node);
+        void showTasks(vector<string>titles);
+        cJSON* checkStatus(cJSON* node, string dailyID);
+        void updateStatus(string dailyID);
 
-    void showTasks(vector<string>titles);
-    cJSON* checkStatus(cJSON* node, string dailyID);
-    void updateStatus(string dailyID);
+    private:
+        wxDECLARE_EVENT_TABLE();
 
-private:
-    // any class wishing to process wxWidgets events must use this macro
-    wxDECLARE_EVENT_TABLE();
+        wxTextCtrl* textField;
+        wxPanel* panel;
+        wxScrolledWindow* scrolledWindow;
+        
+        wxDateTime today = wxDateTime::Today();
+        string filePath;
+        cJSON* root;
 
-    // controls
-    wxStaticText* label;
-    wxTextCtrl* textField;
-    wxButton* loadButton;
-    wxStaticText* name;
-    wxStaticText* date;
-    wxPanel* panel;
-    wxStaticText* staticText;
-    wxScrolledWindow* scrolledWindow;
-    wxButton* saveButton;
-
-    cJSON* root;
-    string filePath;
-
-    vector<string> titles;
-    vector<string> dailyIDs;
-    vector<wxCheckBox*> checkboxes;
-    vector<cJSON*> statuses;
+        vector<string> titles;
+        vector<string> dailyIDs;
+        vector<wxCheckBox*> checkboxList;
+        vector<cJSON*> statusSet;
 };
 
-// IDs for the controls and the menu commands
 enum
 {
-    // menu items
     Minimal_Quit = wxID_EXIT,
-
-    // it is important for the id corresponding to the "About" command to have
-    // this standard value as otherwise it won't be handled properly under Mac
-    // (where it is special and put into the "Apple" menu)
     Minimal_About = wxID_ABOUT
 };
 
-// the event tables connect the wxWidgets events with the functions (event
-// handlers) which process them. It can be also done at run-time, but for the
-// simple menu events like this the static method is much simpler.
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
-    EVT_MENU(Minimal_Quit,  MyFrame::OnQuit)
-    EVT_MENU(Minimal_About, MyFrame::OnAbout)
     EVT_BUTTON(wxEVT_BUTTON, MyFrame::OnLoadButton)
     EVT_CHECKBOX(wxEVT_CHECKBOX, MyFrame::OnCheckbox)
     EVT_BUTTON(wxID_SAVE, MyFrame::OnSaveButton)
 wxEND_EVENT_TABLE()
 
-// create a new application object: this macro will allow wxWidgets to create
-// the application object during program execution (it's better than using a
-// static object for many reasons) and also implements the accessor function
-// wxGetApp() which will return the reference of the right type (count.e. MyApp and
-// not wxApp)
 wxIMPLEMENT_APP(MyApp);
 
-// 'Main program' equivalent: the program execution "starts" here
 bool MyApp::OnInit()
 {
-    // call the base class initialization method, currently it only parses a
-    // few common command-line options but it could be do more in the future
-    if ( !wxApp::OnInit() )
+    if (!wxApp::OnInit())
         return false;
 
-    // create the main application window
-    MyFrame *frame = new MyFrame("vicit-diem");
+    MyFrame* frame = new MyFrame("vicit-diem");
 
-    // and show it (the frames, unlike simple controls, are not shown when
-    // created initially)
     frame->Show(true);
 
-    // success: wxApp::OnRun() will be called which will enter the main message
-    // loop and the application will run. If we returned false here, the
-    // application would exit immediately.
     return true;
 }
 
-// frame constructor
 MyFrame::MyFrame(const wxString& title)
        : wxFrame(NULL, wxID_ANY, title)
 {
-    // create a menu bar
-    wxMenu *fileMenu = new wxMenu;
-
-    // the "About" item should be in the help menu
-    wxMenu *helpMenu = new wxMenu;
-    helpMenu->Append(Minimal_About, "&About\tF1", "Show about dialog");
-
-    fileMenu->Append(Minimal_Quit, "E&xit\tAlt-X", "Quit this program");
-
-    // now append the freshly created menu to the menu bar...
-    wxMenuBar *menuBar = new wxMenuBar();
-    menuBar->Append(fileMenu, "&File");
-    menuBar->Append(helpMenu, "&Help");
-
-    // ... and attach this menu bar to the frame
-    SetMenuBar(menuBar); 
-
-    // label
-    label = new wxStaticText(this, wxID_ANY,
+    wxStaticText* label = new wxStaticText(this, wxID_ANY,
         wxT("Enter path to JSON file"), wxPoint(10, 15), wxDefaultSize, wxALIGN_LEFT);
 
-    // text field
     textField = new wxTextCtrl(this, wxID_ANY,
         wxEmptyString, wxPoint(160, 10), wxSize(125, 20));
+    
+    textField->SetValue("/Users/joshuaparfitt/Development/many_schemas.json");
 
-    // load button
-    loadButton = new wxButton(this, wxEVT_BUTTON, 
+    wxButton* loadButton = new wxButton(this, wxEVT_BUTTON, 
         wxT("Load"), wxPoint(300, 10), wxDefaultSize);
 
-    // date
-    wxDateTime wxDate = wxDateTime::Today();
+    wxString day = today.GetWeekDayName(today.GetWeekDay(), today.Name_Full); 
+    wxString date = today.FormatDate();
 
-    wxString wxStringDay = wxDate.GetWeekDayName(wxDate.GetWeekDay(), wxDate.Name_Full); 
-    wxString wxStringDate = wxDate.FormatDate();
+    wxStaticText* dayLabel = new wxStaticText(this, wxID_ANY,
+        day, wxPoint(170, 40), wxDefaultSize);
 
-    date = new wxStaticText(this, wxID_ANY,
-        (wxStringDay + wxT(" ") + wxStringDate), wxPoint(165, 40), wxDefaultSize);
+    wxStaticText* dateLabel = new wxStaticText(this, wxID_ANY,
+        date, wxPoint(230, 40), wxDefaultSize);
 
-    // panel
     panel = new wxPanel(this, wxID_ANY,
         wxPoint(20, 70), wxSize(360, 90));
 
-    // scrolled window
     scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
         wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
 
@@ -205,42 +131,16 @@ MyFrame::MyFrame(const wxString& title)
     scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
         noUnitsX, noUnitsY);   
 
-    // save button
-    saveButton = new wxButton(this, wxID_SAVE, 
-        wxT("Save"), wxPoint(160, 160), wxDefaultSize);
-
-    // status bar
-    CreateStatusBar(2); 
-    SetStatusText("Welcome to vicit-diem!");
-}
-
-// event handlers
-void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
-{
-    // true is to force the frame to close
-    Close(true);
-}
-
-void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
-{
-    wxMessageBox(wxString::Format
-                 (
-                    "Welcome to vicit-diem!\n"
-                    "\n"
-                    "This is the vicit-diem app\n"
-                    "running under %s.",
-                    wxVERSION_STRING,
-                    wxGetOsDescription()
-                 ),
-                 "About vicit-diem",
-                 wxOK | wxICON_INFORMATION,
-                 this);
+    wxButton* saveButton = new wxButton(this, wxID_SAVE, 
+        wxT("Save"), wxPoint(160, 180), wxDefaultSize);
 }
 
 void MyFrame::OnLoadButton(wxCommandEvent& event)
 {
-    wxString wxStringPath = textField->GetValue();
-    filePath = wxStringPath.ToStdString();
+    static int count = 0;
+
+    wxString textEntry = textField->GetValue();
+    filePath = textEntry.ToStdString();
 
     ifstream fin;
     fin.open(filePath);
@@ -249,71 +149,72 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
     {
         string line, file; 
 
-        // read the JSON file
         while (getline(fin, line))
             file += line; 
         
-        // parse the JSON file
         root = cJSON_Parse(file.c_str());
 
-        // get the name
-        wxString fullName(getName(root));
+        if (count == 0)
+        {   
+            wxString name(getName(root));
 
-        name = new wxStaticText(this, wxID_ANY,
-           fullName, wxPoint(95, 40), wxDefaultSize);
+            wxStaticText* nameLabel = new wxStaticText(this, wxID_ANY,
+                name, wxPoint(100, 40), wxDefaultSize);
+        }
+        else
+        {
+            scrolledWindow->Destroy();
 
-        // get the task database corresponding to the current date
+            scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
+                wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
+            
+            int pixelsPerUnitX = 0;
+            int pixelsPerUnitY = 10;
+            int noUnitsX = 0;
+            int noUnitsY = 20;
+
+            scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
+                noUnitsX, noUnitsY);   
+
+            titles.clear();
+            dailyIDs.clear();
+            checkboxList.clear();
+            statusSet.clear();
+        }
         cJSON* taskDatabase = getTaskDatabase(root);
 
-        // get the titles corresponding to the current day of the week
         getTitles(taskDatabase);
-
-        // get the daily IDs corresponding to the current day of the week
         getDailyIDs(taskDatabase);
 
-        // show the tasks for the day
         showTasks(titles);
+
+        count++;
     }
     else
     {
-        wxString errorMessage = wxString::Format(wxT("File %s was not found"), filePath.c_str());
-        staticText = new wxStaticText(scrolledWindow, wxID_ANY, errorMessage, wxPoint(5, 5));
+        wxStaticText* errorMessage = new wxStaticText(scrolledWindow, wxID_ANY, 
+            wxString::Format(wxT("File \"%s\" was not found"), filePath.c_str()), wxPoint(5, 5));
     }
     fin.close();
 }
 
-// get the name
 string MyFrame::getName(cJSON* node)
 {
     string name = "name";
     
-    if (node->type == cJSON_Array)
+    cJSON* child = node->child;
+    while (child)
     {
-        cJSON* child = node->child;
-        while (child)
-        {
-            getName(child);
-            child = child->next;
-        }
-    }
-    else if (node->type == cJSON_Object)
-    {
-        cJSON* child = node->child;
-        while (child)
-        {
-            if (child->string == name)
-                return child->valuestring;
-
-            child = child->next;
-        }
+        if (child->string == name)
+            return child->valuestring;
+        
+        child = child->next;
     }
     return NULL;
 }
 
-// get the task database corresponding to the current date
 cJSON* MyFrame::getTaskDatabase(cJSON* node)
 {
-    wxDateTime currentDate = wxDateTime::Today();
     string date = "date";
     string taskDatabase = "taskdb";
 
@@ -338,18 +239,37 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
                 wxDateTime afterDate = NULL;
                 wxDateTime beforeDate = NULL;
 
-                afterDate.ParseDate(child->valuestring);
-                beforeDate.ParseDate(getNextDate(node->next));
-
-                if (currentDate.IsSameDate(afterDate) || currentDate.IsStrictlyBetween(afterDate, beforeDate))
+                if (node->next)
                 {
-                    cJSON* child = node->child;
-                    while (child)
+                    afterDate.ParseDate(child->valuestring);
+                    beforeDate.ParseDate(getNextDate(node->next));
+            
+                    if (today.IsSameDate(afterDate) || today.IsStrictlyBetween(afterDate, beforeDate))
                     {
-                        if (child->string == taskDatabase)
-                            return child;
+                        cJSON* child = node->child;
+                        while (child)
+                        {
+                            if (child->string == taskDatabase)
+                                return child;
 
-                        child = child->next;
+                            child = child->next;
+                        }
+                    }
+                }
+                else
+                {
+                    afterDate.ParseDate(child->valuestring);
+
+                    if (today.IsSameDate(afterDate) || today.IsLaterThan(afterDate))
+                    {
+                        cJSON* child = node->child;
+                        while (child)
+                        {
+                            if (child->string == taskDatabase)
+                                return child;
+
+                            child = child->next;
+                        }
                     }
                 }
             }
@@ -362,7 +282,6 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
     return NULL;
 } 
 
-// get the next date
 string MyFrame::getNextDate(cJSON* node)
 {
     string date = "date";
@@ -378,7 +297,6 @@ string MyFrame::getNextDate(cJSON* node)
     return NULL;
 }
 
-// get the titles corresponding to the current day of the week
 void MyFrame::getTitles(cJSON* node)
 {
     string title = "title";
@@ -417,7 +335,6 @@ void MyFrame::getTitles(cJSON* node)
     }
 }
 
-// get the daily IDs corresponding to the current day of the week
 void MyFrame::getDailyIDs(cJSON* node)
 {
     string dailyID = "daily_id";
@@ -440,7 +357,7 @@ void MyFrame::getDailyIDs(cJSON* node)
             if (child->string == assignedDays)
             {
                 if (isAssignedDay(child))
-                {   
+                {
                     cJSON* child = node->child;
                     while (child)
                     {
@@ -458,8 +375,6 @@ void MyFrame::getDailyIDs(cJSON* node)
 
 bool MyFrame::isAssignedDay(cJSON* node)
 {
-    wxDateTime today = wxDateTime::Today();
-
     string everyday = "Everyday", weekdays = "Weekdays", weekends = "Weekends";
     
     vector<string> everydayExpansion = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
@@ -569,27 +484,28 @@ void MyFrame::showTasks(vector<string> titles)
     for (int count = 0; count < titles.size(); count++)
     {
         wxString title(titles[count]);
-
-        wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
-            title, wxPoint(0, position), wxDefaultSize);
         
         cJSON* status = checkStatus(root, dailyIDs[count]);
 
-        if (status->valueint == 0)
-            checkbox->SetValue(false);
-        else if (status->valueint == 1)
-            checkbox->SetValue(true);
-    
-        checkboxes.push_back(checkbox);
-        statuses.push_back(status);
+        if (status)
+        {
+            wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
+                title, wxPoint(0, position), wxDefaultSize);
 
+            if (status->valueint == 0)
+                checkbox->SetValue(false);
+            else if (status->valueint == 1)
+                checkbox->SetValue(true);
+        
+            checkboxList.push_back(checkbox);
+            statusSet.push_back(status);
+        }
         position += 30;
     }
 }
 
 cJSON* MyFrame::checkStatus(cJSON* node, string dailyID)
 {
-    wxDateTime today = wxDateTime::Today();
     string dailyRecord = "daily_record";
 
     cJSON* child = node->child;
@@ -626,9 +542,9 @@ void MyFrame::OnCheckbox(wxCommandEvent& event)
 {
     wxCheckBox* checkbox = (wxCheckBox*) event.GetEventObject();
 
-    for (int count = 0; count < checkboxes.size(); count++)
+    for (int count = 0; count < checkboxList.size(); count++)
     {
-        if (checkbox == checkboxes[count])
+        if (checkbox == checkboxList[count])
             updateStatus(dailyIDs[count]);
     }
 }
@@ -639,10 +555,10 @@ void MyFrame::updateStatus(string dailyID)
     {
         if (dailyID == dailyIDs[count])
         {
-            if (statuses[count]->valueint == 0)
-                cJSON_SetNumberValue(statuses[count], 1);
-            else if (statuses[count]->valueint == 1)
-                cJSON_SetNumberValue(statuses[count], 0);
+            if (statusSet[count]->valueint == 0)
+                cJSON_SetNumberValue(statusSet[count], 1);
+            else if (statusSet[count]->valueint == 1)
+                cJSON_SetNumberValue(statusSet[count], 0);
         }
     }
 }
@@ -657,5 +573,3 @@ void MyFrame::OnSaveButton(wxCommandEvent& event)
 
     fout.close();
 }
-
-// Path to JSON file:   /Users/joshuaparfitt/Development/many_schemas.json
