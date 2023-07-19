@@ -41,8 +41,8 @@ class MyFrame : public wxFrame
 
         string getName(cJSON* node);
         cJSON* getTaskDatabase(cJSON* node);
-        cJSON* getTodaysRecord(cJSON* node);
         string getNextDate(cJSON* node);
+        cJSON* getTodaysRecord(cJSON* node);
 
         void getTitles(cJSON* node);
         void getDailyIDs(cJSON* node);
@@ -73,11 +73,9 @@ class MyFrame : public wxFrame
         vector<cJSON*> statusSet;
 };
 
-enum
-{
-    Minimal_Quit = wxID_EXIT,
-    Minimal_About = wxID_ABOUT
-};
+/////////////////////////////////////////////////////////////////////////////
+// event table 
+/////////////////////////////////////////////////////////////////////////////
 
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_BUTTON(wxEVT_BUTTON, MyFrame::OnLoadButton)
@@ -98,6 +96,10 @@ bool MyApp::OnInit()
 
     return true;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// main frame
+/////////////////////////////////////////////////////////////////////////////
 
 MyFrame::MyFrame(const wxString& title)
        : wxFrame(NULL, wxID_ANY, title)
@@ -134,11 +136,15 @@ MyFrame::MyFrame(const wxString& title)
     int noUnitsY = 20;
 
     scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
-        noUnitsX, noUnitsY);   
+        noUnitsX, noUnitsY); 
 
     wxButton* saveButton = new wxButton(this, wxID_SAVE, 
         wxT("Save"), wxPoint(160, 180), wxDefaultSize);
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// event handlers 
+/////////////////////////////////////////////////////////////////////////////
 
 void MyFrame::OnLoadButton(wxCommandEvent& event)
 {
@@ -159,6 +165,19 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
         
         root = cJSON_Parse(file.c_str());
 
+        scrolledWindow->Destroy();
+
+        scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
+            wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
+        
+        int pixelsPerUnitX = 0;
+        int pixelsPerUnitY = 10;
+        int noUnitsX = 0;
+        int noUnitsY = 20;
+
+        scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
+            noUnitsX, noUnitsY);
+
         if (count == 0)
         {   
             wxString name(getName(root));
@@ -168,19 +187,6 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
         }
         else
         {
-            scrolledWindow->Destroy();
-
-            scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
-                wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
-            
-            int pixelsPerUnitX = 0;
-            int pixelsPerUnitY = 10;
-            int noUnitsX = 0;
-            int noUnitsY = 20;
-
-            scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
-                noUnitsX, noUnitsY);   
-
             titles.clear();
             dailyIDs.clear();
             checkboxList.clear();
@@ -205,6 +211,42 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
     }
     fin.close();
 }
+
+void MyFrame::OnSaveButton(wxCommandEvent& event)
+{
+    if (root)
+    {
+        ofstream fout;
+        fout.open(filePath);
+
+        char* file = cJSON_Print(root);
+        fout << file;
+
+        fout.close();
+    }
+    else
+    {
+        wxString errorMessage("The file must first be loaded before it can be saved");
+
+        wxStaticText* errorMessageLabel = new wxStaticText(scrolledWindow, wxID_ANY, 
+            errorMessage, wxPoint(5, 5));
+    }
+}
+
+void MyFrame::OnCheckbox(wxCommandEvent& event)
+{
+    wxCheckBox* checkbox = (wxCheckBox*) event.GetEventObject();
+
+    for (int count = 0; count < checkboxList.size(); count++)
+    {
+        if (checkbox == checkboxList[count])
+            updateStatus(dailyIDs[count]);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// helper functions 
+/////////////////////////////////////////////////////////////////////////////
 
 string MyFrame::getName(cJSON* node)
 {
@@ -300,6 +342,32 @@ string MyFrame::getNextDate(cJSON* node)
         if (child->string == date)
             return child->valuestring;
         
+        child = child->next;
+    }
+    return NULL;
+}
+
+cJSON* MyFrame::getTodaysRecord(cJSON* node)
+{
+    string dailyRecord = "daily_record";
+
+    cJSON* child = node->child;
+    while (child)
+    {
+        if (child->string == dailyRecord)
+        {
+            cJSON* grandChild = child->child;
+            while (grandChild)
+            {
+                wxDateTime date = NULL;
+                date.ParseDate(grandChild->string);
+
+                if (today.IsSameDate(date))
+                    return grandChild;
+                
+                grandChild = grandChild->next;
+            }
+        }
         child = child->next;
     }
     return NULL;
@@ -485,32 +553,6 @@ bool MyFrame::isAssignedDay(cJSON* node)
     return false;
 }
 
-cJSON* MyFrame::getTodaysRecord(cJSON* node)
-{
-    string dailyRecord = "daily_record";
-
-    cJSON* child = node->child;
-    while (child)
-    {
-        if (child->string == dailyRecord)
-        {
-            cJSON* grandChild = child->child;
-            while (grandChild)
-            {
-                wxDateTime date = NULL;
-                date.ParseDate(grandChild->string);
-
-                if (today.IsSameDate(date))
-                    return grandChild;
-                
-                grandChild = grandChild->next;
-            }
-        }
-        child = child->next;
-    }
-    return NULL;
-}
-
 void MyFrame::addMissingTasks(cJSON* node)
 {
     for (int count = 0; count < dailyIDs.size(); count++)
@@ -587,17 +629,6 @@ cJSON* MyFrame::getStatus(cJSON* node, string dailyID)
     return NULL;
 }
 
-void MyFrame::OnCheckbox(wxCommandEvent& event)
-{
-    wxCheckBox* checkbox = (wxCheckBox*) event.GetEventObject();
-
-    for (int count = 0; count < checkboxList.size(); count++)
-    {
-        if (checkbox == checkboxList[count])
-            updateStatus(dailyIDs[count]);
-    }
-}
-
 void MyFrame::updateStatus(string dailyID)
 {
     for (int count = 0; count < dailyIDs.size(); count++)
@@ -609,26 +640,5 @@ void MyFrame::updateStatus(string dailyID)
             else if (statusSet[count]->valueint == 1)
                 cJSON_SetNumberValue(statusSet[count], 0);
         }
-    }
-}
-
-void MyFrame::OnSaveButton(wxCommandEvent& event)
-{
-    if (root)
-    {
-        ofstream fout;
-        fout.open(filePath);
-
-        char* file = cJSON_Print(root);
-        fout << file;
-
-        fout.close();
-    }
-    else
-    {
-        wxString errorMessage("The file must first be loaded before it can be saved");
-
-        wxStaticText* errorMessageLabel = new wxStaticText(scrolledWindow, wxID_ANY, 
-            errorMessage, wxPoint(5, 5));
     }
 }
