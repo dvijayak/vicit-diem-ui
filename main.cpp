@@ -11,6 +11,7 @@
 #include "wx/sizer.h"
 #include "wx/scrolwin.h"
 #include "wx/checkbox.h"
+#include "wx/filedlg.h"
 #include "../cJSON/cJSON.h"
 #include <string>
 #include <cstring>
@@ -38,6 +39,7 @@ class MyFrame : public wxFrame
         void OnLoadButton(wxCommandEvent& event);
         void OnCheckbox(wxCommandEvent& event);
         void OnSaveButton(wxCommandEvent& event);
+        void OnOpenFileDialogButton(wxCommandEvent& event);
 
         void clearWindow();
 
@@ -46,16 +48,16 @@ class MyFrame : public wxFrame
         string getNextDate(cJSON* node);
         cJSON* getTodaysRecord(cJSON* node);
 
-        void getTitles(cJSON* node);
-        void getDailyIDs(cJSON* node);
+        void getTitles(cJSON* node, vector<string>& titles);
+        void getDailyIDs(cJSON* node, vector<string>& dailyIDs);
         bool isAssignedDay(cJSON* node);
 
-        void addTasksToRecord(cJSON* node);
-        void deleteTasksFromRecord(cJSON* node);
-        void showTasks(vector<string>titles);
+        void addTasksToRecord(cJSON* node, vector<string> dailyIDs);
+        void deleteTasksFromRecord(cJSON* node, vector<string> dailyIDs);
+        void showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList, vector<cJSON*>& statusSet);
 
         cJSON* getStatus(cJSON* node, string dailyID);
-        void updateStatus(string dailyID);
+        void updateStatus(cJSON* todaysRecord, cJSON* status);
 
     private:
         wxDECLARE_EVENT_TABLE();
@@ -81,6 +83,7 @@ class MyFrame : public wxFrame
 
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_BUTTON(wxEVT_BUTTON, MyFrame::OnLoadButton)
+    EVT_BUTTON(wxID_OPEN, MyFrame::OnOpenFileDialogButton)
     EVT_CHECKBOX(wxEVT_CHECKBOX, MyFrame::OnCheckbox)
     EVT_BUTTON(wxID_SAVE, MyFrame::OnSaveButton)
 wxEND_EVENT_TABLE()
@@ -106,6 +109,8 @@ bool MyApp::OnInit()
 MyFrame::MyFrame(const wxString& title)
        : wxFrame(NULL, wxID_ANY, title)
 {
+    wxBoxSizer* topLevel = new wxBoxSizer(wxVERTICAL);
+
     wxStaticText* label = new wxStaticText(this, wxID_ANY,
         wxT("Enter path to JSON file"), wxPoint(10, 15), wxDefaultSize, wxALIGN_LEFT);
 
@@ -117,6 +122,9 @@ MyFrame::MyFrame(const wxString& title)
     wxButton* loadButton = new wxButton(this, wxEVT_BUTTON, 
         wxT("Load"), wxPoint(300, 10), wxDefaultSize);
 
+    wxButton* openButton = new wxButton(this, wxID_OPEN,
+        wxT("Open"), wxPoint(400, 10), wxDefaultSize);
+
     wxString day = today.GetWeekDayName(today.GetWeekDay(), today.Name_Full); 
     wxString date = today.FormatDate();
 
@@ -125,7 +133,7 @@ MyFrame::MyFrame(const wxString& title)
 
     panel = new wxPanel(this, wxID_ANY,
         wxPoint(20, 70), wxSize(360, 90));
-
+        
     scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
         wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
 
@@ -139,6 +147,8 @@ MyFrame::MyFrame(const wxString& title)
 
     wxButton* saveButton = new wxButton(this, wxID_SAVE, 
         wxT("Save"), wxPoint(160, 180), wxDefaultSize);
+    
+    SetSizer(topLevel);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -183,12 +193,12 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
         cJSON* taskDatabase = getTaskDatabase(root);
         todaysRecord = getTodaysRecord(root);
 
-        getTitles(taskDatabase);
-        getDailyIDs(taskDatabase);
+        getTitles(taskDatabase, titles);
+        getDailyIDs(taskDatabase, dailyIDs);
 
-        addTasksToRecord(todaysRecord);
-        deleteTasksFromRecord(todaysRecord);
-        showTasks(titles);
+        addTasksToRecord(todaysRecord, dailyIDs);
+        deleteTasksFromRecord(todaysRecord, dailyIDs);
+        showTasks(titles, dailyIDs, checkboxList, statusSet);
 
         count++;
     }
@@ -207,7 +217,7 @@ void MyFrame::OnCheckbox(wxCommandEvent& event)
     for (int count = 0; count < checkboxList.size(); count++)
     {
         if (checkbox == checkboxList[count])
-            updateStatus(dailyIDs[count]);
+            updateStatus(todaysRecord, statusSet[count]);
     }
 }
 
@@ -246,6 +256,17 @@ void MyFrame::OnSaveButton(wxCommandEvent& event)
 
         wxStaticText* errorMessageLabel = new wxStaticText(scrolledWindow, wxID_ANY, 
             errorMessage, wxPoint(5, 5));
+    }
+}
+
+void MyFrame::OnOpenFileDialogButton(wxCommandEvent& event)
+{
+    wxFileDialog dialog(this);
+
+    if (dialog.ShowModal() == wxID_OK) 
+    {
+        wxString path = dialog.GetPath();
+        textField->SetValue(path);
     }
 }
 
@@ -378,7 +399,7 @@ cJSON* MyFrame::getTodaysRecord(cJSON* node)
     return NULL;
 }
 
-void MyFrame::getTitles(cJSON* node)
+void MyFrame::getTitles(cJSON* node, vector<string>& titles)
 {
     string title = "title";
     string assignedDays = "assigned_days";
@@ -388,7 +409,7 @@ void MyFrame::getTitles(cJSON* node)
         cJSON* child = node->child;
         while (child)
         {
-            getTitles(child);
+            getTitles(child, titles);
             child = child->next;
         }
     }
@@ -416,7 +437,7 @@ void MyFrame::getTitles(cJSON* node)
     }
 }
 
-void MyFrame::getDailyIDs(cJSON* node)
+void MyFrame::getDailyIDs(cJSON* node, vector<string>& dailyIDs)
 {
     string dailyID = "daily_id";
     string assignedDays = "assigned_days";
@@ -426,7 +447,7 @@ void MyFrame::getDailyIDs(cJSON* node)
         cJSON* child = node->child;
         while (child)
         {
-            getDailyIDs(child);
+            getDailyIDs(child, dailyIDs);
             child = child->next;
         }
     }
@@ -558,7 +579,7 @@ bool MyFrame::isAssignedDay(cJSON* node)
     return false;
 }
 
-void MyFrame::addTasksToRecord(cJSON* node)
+void MyFrame::addTasksToRecord(cJSON* node, vector<string> dailyIDs)
 {
     for (int count = 0; count < dailyIDs.size(); count++)
     {
@@ -577,7 +598,7 @@ void MyFrame::addTasksToRecord(cJSON* node)
     }
 }
 
-void MyFrame::deleteTasksFromRecord(cJSON* node)
+void MyFrame::deleteTasksFromRecord(cJSON* node, vector<string> dailyIDs)
 {
     cJSON* child = node->child;
     while (child)
@@ -596,7 +617,7 @@ void MyFrame::deleteTasksFromRecord(cJSON* node)
     }
 }
 
-void MyFrame::showTasks(vector<string> titles)
+void MyFrame::showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList, vector<cJSON*>& statusSet)
 {
     int position = 0;
 
@@ -607,13 +628,20 @@ void MyFrame::showTasks(vector<string> titles)
         cJSON* status = getStatus(todaysRecord, dailyIDs[count]);
         
         wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
-            title, wxPoint(0, position), wxDefaultSize);
+            title, wxPoint(0, position), wxDefaultSize, wxCHK_3STATE + wxCHK_ALLOW_3RD_STATE_FOR_USER);
 
-        if (status->valueint == 0)
-            checkbox->SetValue(false);
-        else if (status->valueint == 1)
-            checkbox->SetValue(true);
-    
+        if (status->valueint)
+        {
+            if (status->valueint == 0)
+                checkbox->Set3StateValue(wxCHK_UNCHECKED);
+            else if (status->valueint == 1)
+                checkbox->Set3StateValue(wxCHK_CHECKED);
+        }
+        else if (status->valuestring)
+        {
+            if (strcmp(status->valuestring, "N/A") == 0)
+                checkbox->Set3StateValue(wxCHK_UNDETERMINED);
+        }
         checkboxList.push_back(checkbox);
         statusSet.push_back(status);
        
@@ -634,18 +662,14 @@ cJSON* MyFrame::getStatus(cJSON* node, string dailyID)
     return NULL;
 }
 
-void MyFrame::updateStatus(string dailyID)
+void MyFrame::updateStatus(cJSON* todaysRecord, cJSON* status)
 {
-    for (int count = 0; count < dailyIDs.size(); count++)
-    {
-        if (dailyID == dailyIDs[count])
-        {
-            if (statusSet[count]->valueint == 0)
-                cJSON_SetNumberValue(statusSet[count], 1);
-            else if (statusSet[count]->valueint == 1)
-                cJSON_SetNumberValue(statusSet[count], 0);
-        }
-    }
+    if (!status->valuestring && status->valueint == 0)
+        cJSON_ReplaceItemInObject(todaysRecord, status->string, cJSON_CreateString("N/A"));
+    else if (!status->valueint && strcmp(status->valuestring, "N/A") == 0)
+        cJSON_ReplaceItemInObject(todaysRecord, status->string, cJSON_CreateNumber(1));
+    else if (!status->valuestring && status->valueint && status->valueint == 1)
+        cJSON_ReplaceItemInObject(todaysRecord, status->string, cJSON_CreateNumber(0));
 }
 
 void MyFrame::clearWindow()
