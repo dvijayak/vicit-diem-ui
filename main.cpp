@@ -12,6 +12,7 @@
 #include "wx/scrolwin.h"
 #include "wx/checkbox.h"
 #include "wx/filedlg.h"
+#include <wx/datectrl.h>
 #include "../cJSON/cJSON.h"
 #include <string>
 #include <cstring>
@@ -46,7 +47,7 @@ class MyFrame : public wxFrame
         string getName(cJSON* node);
         cJSON* getTaskDatabase(cJSON* node);
         string getNextDate(cJSON* node);
-        cJSON* getTodaysRecord(cJSON* node);
+        cJSON* getRecordAccount(cJSON* node);
 
         void getTitles(cJSON* node, vector<string>& titles);
         void getDailyIDs(cJSON* node, vector<string>& dailyIDs);
@@ -63,13 +64,14 @@ class MyFrame : public wxFrame
         wxDECLARE_EVENT_TABLE();
 
         wxTextCtrl* textField;
+        wxDatePickerCtrl* datePicker;
         wxPanel* panel;
         wxScrolledWindow* scrolledWindow;
         
-        wxDateTime today = wxDateTime::Today();
+        wxDateTime date;
         string filePath;
         cJSON* root = NULL;
-        cJSON* todaysRecord;
+        cJSON* recordAccount;
 
         vector<string> titles;
         vector<string> dailyIDs;
@@ -124,12 +126,17 @@ MyFrame::MyFrame(const wxString& title)
 
     wxButton* openButton = new wxButton(this, wxID_OPEN,
         wxT("Open"), wxPoint(400, 10), wxDefaultSize);
+    
+    datePicker = new wxDatePickerCtrl(this, wxID_APPLY, 
+        wxDefaultDateTime, wxPoint(500, 10));
 
-    wxString day = today.GetWeekDayName(today.GetWeekDay(), today.Name_Full); 
-    wxString date = today.FormatDate();
+    wxDateTime today = wxDateTime::Today();
+
+    wxString todaysName = today.GetWeekDayName(today.GetWeekDay(), today.Name_Full); 
+    wxString todaysDate = today.FormatDate();
 
     wxStaticText* dateLabel = new wxStaticText(this, wxID_ANY,
-        (day + wxT("\t") + date), wxPoint(180, 40), wxDefaultSize);
+        (todaysName + wxT("\t") + todaysDate), wxPoint(180, 40), wxDefaultSize);
 
     panel = new wxPanel(this, wxID_ANY,
         wxPoint(20, 70), wxSize(360, 90));
@@ -157,6 +164,8 @@ MyFrame::MyFrame(const wxString& title)
 
 void MyFrame::OnLoadButton(wxCommandEvent& event)
 {
+    date = datePicker->GetValue();
+
     wxString textEntry = textField->GetValue();
     filePath = textEntry.ToStdString();
 
@@ -191,13 +200,13 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
             statusSet.clear();
         }
         cJSON* taskDatabase = getTaskDatabase(root);
-        todaysRecord = getTodaysRecord(root);
+        recordAccount = getRecordAccount(root);
 
         getTitles(taskDatabase, titles);
         getDailyIDs(taskDatabase, dailyIDs);
 
-        addTasksToRecord(todaysRecord, dailyIDs);
-        deleteTasksFromRecord(todaysRecord, dailyIDs);
+        addTasksToRecord(recordAccount, dailyIDs);
+        deleteTasksFromRecord(recordAccount, dailyIDs);
         showTasks(titles, dailyIDs, checkboxList, statusSet);
 
         count++;
@@ -218,8 +227,8 @@ void MyFrame::OnCheckbox(wxCommandEvent& event)
     {
         if (checkbox == checkboxList[count])
         {
-            updateStatus(todaysRecord, statusSet[count]);
-            statusSet[count] = getStatus(todaysRecord, dailyIDs[count]);
+            updateStatus(recordAccount, statusSet[count]);
+            statusSet[count] = getStatus(recordAccount, dailyIDs[count]);
         }
     }
 }
@@ -295,12 +304,10 @@ void MyFrame::clearWindow()
 
 string MyFrame::getName(cJSON* node)
 {
-    string name = "name";
-    
     cJSON* child = node->child;
     while (child)
     {
-        if (child->string == name)
+        if (strcmp(child->string, "name") == 0)
             return child->valuestring;
         
         child = child->next;
@@ -310,9 +317,6 @@ string MyFrame::getName(cJSON* node)
 
 cJSON* MyFrame::getTaskDatabase(cJSON* node)
 {
-    string date = "date";
-    string taskDatabase = "taskdb";
-
     if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
@@ -329,7 +333,7 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
         cJSON* child = node->child;
         while (child)
         {
-            if (child->string == date)
+            if (strcmp(child->string, "date") == 0)
             {
                 wxDateTime afterDate = NULL;
                 wxDateTime beforeDate = NULL;
@@ -339,12 +343,12 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
                     afterDate.ParseDate(child->valuestring);
                     beforeDate.ParseDate(getNextDate(node->next));
             
-                    if (today.IsSameDate(afterDate) || today.IsStrictlyBetween(afterDate, beforeDate))
+                    if (date.IsSameDate(afterDate) || date.IsStrictlyBetween(afterDate, beforeDate))
                     {
                         cJSON* child = node->child;
                         while (child)
                         {
-                            if (child->string == taskDatabase)
+                            if (strcmp(child->string, "taskdb") == 0)
                                 return child;
 
                             child = child->next;
@@ -355,12 +359,12 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
                 {
                     afterDate.ParseDate(child->valuestring);
 
-                    if (today.IsSameDate(afterDate) || today.IsLaterThan(afterDate))
+                    if (date.IsSameDate(afterDate) || date.IsLaterThan(afterDate))
                     {
                         cJSON* child = node->child;
                         while (child)
                         {
-                            if (child->string == taskDatabase)
+                            if (strcmp(child->string, "taskdb") == 0)
                                 return child;
 
                             child = child->next;
@@ -379,12 +383,10 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
 
 string MyFrame::getNextDate(cJSON* node)
 {
-    string date = "date";
-
     cJSON* child = node->child;
     while (child)
     {
-        if (child->string == date)
+        if (strcmp(child->string, "date") == 0)
             return child->valuestring;
         
         child = child->next;
@@ -392,22 +394,20 @@ string MyFrame::getNextDate(cJSON* node)
     return NULL;
 }
 
-cJSON* MyFrame::getTodaysRecord(cJSON* node)
+cJSON* MyFrame::getRecordAccount(cJSON* node)
 {
-    string dailyRecord = "daily_record";
-
     cJSON* child = node->child;
     while (child)
     {
-        if (child->string == dailyRecord)
+        if (strcmp(child->string, "daily_record") == 0)
         {
             cJSON* grandChild = child->child;
             while (grandChild)
             {
-                wxDateTime date = NULL;
-                date.ParseDate(grandChild->string);
+                wxDateTime timestamp = NULL;
+                timestamp.ParseDate(grandChild->string);
 
-                if (today.IsSameDate(date))
+                if (date.IsSameDate(timestamp))
                     return grandChild;
                 
                 grandChild = grandChild->next;
@@ -420,9 +420,6 @@ cJSON* MyFrame::getTodaysRecord(cJSON* node)
 
 void MyFrame::getTitles(cJSON* node, vector<string>& titles)
 {
-    string title = "title";
-    string assignedDays = "assigned_days";
-
     if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
@@ -437,14 +434,14 @@ void MyFrame::getTitles(cJSON* node, vector<string>& titles)
         cJSON* child = node->child;
         while (child)
         {
-            if (child->string == assignedDays)
+            if (strcmp(child->string, "assigned_days") == 0)
             {
                 if (isAssignedDay(child))
                 {
                     cJSON* child = node->child;
                     while (child)
                     {
-                        if (child->string == title)
+                        if (strcmp(child->string, "title") == 0)
                             titles.push_back(child->valuestring);
                         
                         child = child->next;
@@ -458,9 +455,6 @@ void MyFrame::getTitles(cJSON* node, vector<string>& titles)
 
 void MyFrame::getDailyIDs(cJSON* node, vector<string>& dailyIDs)
 {
-    string dailyID = "daily_id";
-    string assignedDays = "assigned_days";
-
     if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
@@ -475,14 +469,14 @@ void MyFrame::getDailyIDs(cJSON* node, vector<string>& dailyIDs)
         cJSON* child = node->child;
         while (child)
         {
-            if (child->string == assignedDays)
+            if (strcmp(child->string, "assigned_days") == 0)
             {
                 if (isAssignedDay(child))
                 {
                     cJSON* child = node->child;
                     while (child)
                     {
-                        if (child->string == dailyID)
+                        if (strcmp(child->string, "daily_id") == 0)
                             dailyIDs.push_back(child->valuestring);
                         
                         child = child->next;
@@ -496,47 +490,45 @@ void MyFrame::getDailyIDs(cJSON* node, vector<string>& dailyIDs)
 
 bool MyFrame::isAssignedDay(cJSON* node)
 {
-    string everyday = "Everyday", weekdays = "Weekdays", weekends = "Weekends";
-    
-    vector<string> everydayExpansion = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
-    vector<string> weekdaysExpansion = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
-    vector<string> weekendsExpansion = {"Saturday", "Sunday"};
+    vector<string> everyday = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+    vector<string> weekdays = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
+    vector<string> weekends = {"Saturday", "Sunday"};
 
     if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
         while (child)
         {
-            if (child->valuestring == everyday)
+            if (strcmp(child->valuestring, "Everyday") == 0)
             {
-                for (int count = 0; count < everydayExpansion.size(); count++)
+                for (int count = 0; count < everyday.size(); count++)
                 {
                     wxDateTime day = NULL;
-                    day.ParseDate(everydayExpansion[count]);
+                    day.ParseDate(everyday[count]);
 
-                    if (today.IsSameDate(day))
+                    if (date.IsSameDate(day))
                         return true;
                 }
             }
-            else if (child->valuestring == weekdays)
+            else if (strcmp(child->valuestring, "Weekdays") == 0)
             {
-                for (int count = 0; count < weekdaysExpansion.size(); count++)
+                for (int count = 0; count < weekdays.size(); count++)
                 {
                     wxDateTime day = NULL;
-                    day.ParseDate(weekdaysExpansion[count]);
+                    day.ParseDate(weekdays[count]);
 
-                    if (today.IsSameDate(day))
+                    if (date.IsSameDate(day))
                         return true;
                 }
             }
-            else if (child->valuestring == weekends)
+            else if (strcmp(child->valuestring, "Weekends") == 0)
             {
-                for (int count = 0; count < weekendsExpansion.size(); count++)
+                for (int count = 0; count < weekends.size(); count++)
                 {
                     wxDateTime day = NULL;
-                    day.ParseDate(weekendsExpansion[count]);
+                    day.ParseDate(weekends[count]);
 
-                    if (today.IsSameDate(day))
+                    if (date.IsSameDate(day))
                         return true;
                 }
             }
@@ -545,7 +537,7 @@ bool MyFrame::isAssignedDay(cJSON* node)
                 wxDateTime day = NULL;
                 day.ParseDate(child->valuestring);
 
-                if (today.IsSameDate(day))
+                if (date.IsSameDate(day))
                     return true;
             }
             child = child->next;
@@ -553,36 +545,36 @@ bool MyFrame::isAssignedDay(cJSON* node)
     }
     else
     {
-        if (node->valuestring == everyday)
+        if (strcmp(node->valuestring, "Everyday") == 0)
         {
-            for (int count = 0; count < everydayExpansion.size(); count++)
+            for (int count = 0; count < everyday.size(); count++)
             {
                 wxDateTime day = NULL;
-                day.ParseDate(everydayExpansion[count]);
+                day.ParseDate(everyday[count]);
 
-                if (today.IsSameDate(day))
+                if (date.IsSameDate(day))
                     return true;
             }
         }
-        else if (node->valuestring == weekdays)
+        else if (strcmp(node->valuestring, "Weekdays") == 0)
         {
-            for (int count = 0; count < weekdaysExpansion.size(); count++)
+            for (int count = 0; count < weekdays.size(); count++)
             {
                 wxDateTime day = NULL;
-                day.ParseDate(weekdaysExpansion[count]);
+                day.ParseDate(weekdays[count]);
 
-                if (today.IsSameDate(day))
+                if (date.IsSameDate(day))
                     return true;
             }
         }
-        else if (node->valuestring == weekends)
+        else if (strcmp(node->valuestring, "Weekends") == 0)
         {
-            for (int count = 0; count < weekendsExpansion.size(); count++)
+            for (int count = 0; count < weekends.size(); count++)
             {
                 wxDateTime day = NULL;
-                day.ParseDate(weekendsExpansion[count]);
+                day.ParseDate(weekends[count]);
 
-                if (today.IsSameDate(day))
+                if (date.IsSameDate(day))
                     return true;
             }
         }
@@ -591,7 +583,7 @@ bool MyFrame::isAssignedDay(cJSON* node)
             wxDateTime day = NULL;
             day.ParseDate(node->valuestring);
 
-            if (today.IsSameDate(day))
+            if (date.IsSameDate(day))
                 return true;
         }
     }
@@ -644,7 +636,7 @@ void MyFrame::showTasks(vector<string> titles, vector<string> dailyIDs, vector<w
     {
         wxString title(titles[count]);
         
-        cJSON* status = getStatus(todaysRecord, dailyIDs[count]);
+        cJSON* status = getStatus(recordAccount, dailyIDs[count]);
         
         wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
             title, wxPoint(0, position), wxDefaultSize, wxCHK_3STATE + wxCHK_ALLOW_3RD_STATE_FOR_USER);
