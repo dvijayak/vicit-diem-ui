@@ -57,7 +57,7 @@ class MyFrame : public wxFrame
         void showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList, vector<cJSON*>& statusSet);
 
         cJSON* getStatus(cJSON* node, string dailyID);
-        void updateStatus(cJSON* todaysRecord, cJSON* status);
+        void updateStatus(cJSON* node, cJSON* status);
 
     private:
         wxDECLARE_EVENT_TABLE();
@@ -217,7 +217,10 @@ void MyFrame::OnCheckbox(wxCommandEvent& event)
     for (int count = 0; count < checkboxList.size(); count++)
     {
         if (checkbox == checkboxList[count])
+        {
             updateStatus(todaysRecord, statusSet[count]);
+            statusSet[count] = getStatus(todaysRecord, dailyIDs[count]);
+        }
     }
 }
 
@@ -273,6 +276,22 @@ void MyFrame::OnOpenFileDialogButton(wxCommandEvent& event)
 /////////////////////////////////////////////////////////////////////////////
 // helper functions 
 /////////////////////////////////////////////////////////////////////////////
+
+void MyFrame::clearWindow()
+{
+    scrolledWindow->Destroy();
+
+    scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
+        wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
+
+    int pixelsPerUnitX = 0;
+    int pixelsPerUnitY = 10;
+    int noUnitsX = 0;
+    int noUnitsY = 20;
+
+    scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
+        noUnitsX, noUnitsY);
+}
 
 string MyFrame::getName(cJSON* node)
 {
@@ -662,28 +681,15 @@ cJSON* MyFrame::getStatus(cJSON* node, string dailyID)
     return NULL;
 }
 
-void MyFrame::updateStatus(cJSON* todaysRecord, cJSON* status)
+void MyFrame::updateStatus(cJSON* node, cJSON* status)
 {
-    if (!status->valuestring && status->valueint == 0)
-        cJSON_ReplaceItemInObject(todaysRecord, status->string, cJSON_CreateString("N/A"));
-    else if (!status->valueint && strcmp(status->valuestring, "N/A") == 0)
-        cJSON_ReplaceItemInObject(todaysRecord, status->string, cJSON_CreateNumber(1));
-    else if (!status->valuestring && status->valueint && status->valueint == 1)
-        cJSON_ReplaceItemInObject(todaysRecord, status->string, cJSON_CreateNumber(0));
-}
-
-void MyFrame::clearWindow()
-{
-    scrolledWindow->Destroy();
-
-    scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
-        wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
-
-    int pixelsPerUnitX = 0;
-    int pixelsPerUnitY = 10;
-    int noUnitsX = 0;
-    int noUnitsY = 20;
-
-    scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
-        noUnitsX, noUnitsY);
+    if (status->type == cJSON_Number)
+    {
+        if (status->valueint == 0)
+            cJSON_ReplaceItemInObject(node, status->string, cJSON_CreateString("N/A"));
+        else if (status->valueint == 1)
+            cJSON_ReplaceItemInObject(node, status->string, cJSON_CreateNumber(0));
+    }
+    else if (status->type == cJSON_String && strcmp(status->valuestring, "N/A") == 0)
+        cJSON_ReplaceItemInObject(node, status->string, cJSON_CreateNumber(1));
 }
