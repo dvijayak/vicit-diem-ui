@@ -42,7 +42,9 @@ class MyFrame : public wxFrame
         void OnSaveButton(wxCommandEvent& event);
         void OnOpenFileDialogButton(wxCommandEvent& event);
 
-        void clearWindow();
+        void paintWindow(wxPanel* panel);
+        void saveFilePath(string filePath);
+        string loadFilePath();
 
         string getName(cJSON* node);
         cJSON* getTaskDatabase(cJSON* node);
@@ -109,26 +111,25 @@ bool MyApp::OnInit()
 /////////////////////////////////////////////////////////////////////////////
 
 MyFrame::MyFrame(const wxString& title)
-       : wxFrame(NULL, wxID_ANY, title)
+       : wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(650, 250))
 {
-    wxBoxSizer* topLevel = new wxBoxSizer(wxVERTICAL);
-
     wxStaticText* label = new wxStaticText(this, wxID_ANY,
-        wxT("Enter path to JSON file"), wxPoint(10, 15), wxDefaultSize, wxALIGN_LEFT);
+        wxT("Enter path to JSON file"), wxPoint(25, 15), wxDefaultSize, wxALIGN_LEFT);
 
     textField = new wxTextCtrl(this, wxID_ANY,
-        wxEmptyString, wxPoint(160, 10), wxSize(125, 20));
+        wxEmptyString, wxPoint(175, 10), wxSize(125, 20));
     
-    textField->SetValue("/Users/joshuaparfitt/Development/many_schemas.json");
+    string path = loadFilePath();
+    textField->SetValue(path);
 
     wxButton* loadButton = new wxButton(this, wxEVT_BUTTON, 
-        wxT("Load"), wxPoint(300, 10), wxDefaultSize);
+        wxT("Load"), wxPoint(325, 10), wxDefaultSize);
 
     wxButton* openButton = new wxButton(this, wxID_OPEN,
-        wxT("Open"), wxPoint(400, 10), wxDefaultSize);
+        wxT("Open"), wxPoint(425, 10), wxDefaultSize);
     
     datePicker = new wxDatePickerCtrl(this, wxID_APPLY, 
-        wxDefaultDateTime, wxPoint(500, 10));
+        wxDefaultDateTime, wxPoint(525, 10));
 
     wxDateTime today = wxDateTime::Today();
 
@@ -136,26 +137,15 @@ MyFrame::MyFrame(const wxString& title)
     wxString todaysDate = today.FormatDate();
 
     wxStaticText* dateLabel = new wxStaticText(this, wxID_ANY,
-        (todaysName + wxT("\t") + todaysDate), wxPoint(180, 40), wxDefaultSize);
+        (todaysName + wxT("\t") + todaysDate), wxPoint(350, 40), wxDefaultSize);
 
     panel = new wxPanel(this, wxID_ANY,
-        wxPoint(20, 70), wxSize(360, 90));
+        wxPoint(125, 75), wxSize(375, 75));
         
-    scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
-        wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
-
-    int pixelsPerUnitX = 0;
-    int pixelsPerUnitY = 10;
-    int noUnitsX = 0;
-    int noUnitsY = 20;
-
-    scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
-        noUnitsX, noUnitsY); 
+    paintWindow(panel);
 
     wxButton* saveButton = new wxButton(this, wxID_SAVE, 
-        wxT("Save"), wxPoint(160, 180), wxDefaultSize);
-    
-    SetSizer(topLevel);
+        wxT("Save"), wxPoint(275, 175), wxDefaultSize);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -166,13 +156,16 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
 {
     date = datePicker->GetValue();
 
-    wxString textEntry = textField->GetValue();
-    filePath = textEntry.ToStdString();
+    wxString text = textField->GetValue();
+    filePath = text.ToStdString();
+
+    saveFilePath(filePath);
 
     ifstream fin;
     fin.open(filePath);
 
-    clearWindow();
+    scrolledWindow->Destroy();
+    paintWindow(panel);
 
     if (fin)
     {
@@ -190,7 +183,7 @@ void MyFrame::OnLoadButton(wxCommandEvent& event)
             wxString name(getName(root));
 
             wxStaticText* nameLabel = new wxStaticText(this, wxID_ANY,
-                name, wxPoint(90, 40), wxDefaultSize);
+                name, wxPoint(125, 40), wxDefaultSize);
         }
         else
         {
@@ -252,7 +245,8 @@ void MyFrame::OnSaveButton(wxCommandEvent& event)
         }
         else
         {
-            clearWindow();
+            scrolledWindow->Destroy();
+            paintWindow(panel);
 
             wxString errorMessage = wxString::Format(wxT("File \"%s\" could not be saved because it does not exist"), filePath.c_str());
 
@@ -262,7 +256,8 @@ void MyFrame::OnSaveButton(wxCommandEvent& event)
     }
     else
     {
-        clearWindow();
+        scrolledWindow->Destroy();
+        paintWindow(panel);
 
         wxString errorMessage("You must load a file before it can be saved");
 
@@ -286,12 +281,10 @@ void MyFrame::OnOpenFileDialogButton(wxCommandEvent& event)
 // helper functions 
 /////////////////////////////////////////////////////////////////////////////
 
-void MyFrame::clearWindow()
+void MyFrame::paintWindow(wxPanel* panel)
 {
-    scrolledWindow->Destroy();
-
     scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
-        wxPoint(0, 0), wxSize(360, 90), wxVSCROLL);
+        wxPoint(0, 0), wxSize(375, 75), wxVSCROLL);
 
     int pixelsPerUnitX = 0;
     int pixelsPerUnitY = 10;
@@ -300,6 +293,24 @@ void MyFrame::clearWindow()
 
     scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
         noUnitsX, noUnitsY);
+}
+
+void MyFrame::saveFilePath(string filePath)
+{
+    ofstream fout;
+    fout.open("filePath.txt");
+    fout << filePath;
+}
+
+string MyFrame::loadFilePath()
+{
+    string filePath;
+
+    ifstream fin;
+    fin.open("filePath.txt");
+
+    fin >> filePath;
+    return filePath;
 }
 
 string MyFrame::getName(cJSON* node)
@@ -434,6 +445,7 @@ void MyFrame::getTitles(cJSON* node, vector<string>& titles)
         cJSON* child = node->child;
         while (child)
         {
+
             if (strcmp(child->string, "assigned_days") == 0)
             {
                 if (isAssignedDay(child))
@@ -490,6 +502,8 @@ void MyFrame::getDailyIDs(cJSON* node, vector<string>& dailyIDs)
 
 bool MyFrame::isAssignedDay(cJSON* node)
 {
+    wxString dateName = date.GetWeekDayName(date.GetWeekDay(), date.Name_Full); 
+
     vector<string> everyday = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
     vector<string> weekdays = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
     vector<string> weekends = {"Saturday", "Sunday"};
@@ -506,7 +520,9 @@ bool MyFrame::isAssignedDay(cJSON* node)
                     wxDateTime day = NULL;
                     day.ParseDate(everyday[count]);
 
-                    if (date.IsSameDate(day))
+                    wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
+
+                    if (dateName == dayName)
                         return true;
                 }
             }
@@ -517,7 +533,9 @@ bool MyFrame::isAssignedDay(cJSON* node)
                     wxDateTime day = NULL;
                     day.ParseDate(weekdays[count]);
 
-                    if (date.IsSameDate(day))
+                    wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
+
+                    if (dateName == dayName)
                         return true;
                 }
             }
@@ -528,7 +546,9 @@ bool MyFrame::isAssignedDay(cJSON* node)
                     wxDateTime day = NULL;
                     day.ParseDate(weekends[count]);
 
-                    if (date.IsSameDate(day))
+                    wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
+
+                    if (dateName == dayName)
                         return true;
                 }
             }
@@ -537,7 +557,9 @@ bool MyFrame::isAssignedDay(cJSON* node)
                 wxDateTime day = NULL;
                 day.ParseDate(child->valuestring);
 
-                if (date.IsSameDate(day))
+                wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
+
+                if (dateName == dayName)
                     return true;
             }
             child = child->next;
@@ -552,7 +574,9 @@ bool MyFrame::isAssignedDay(cJSON* node)
                 wxDateTime day = NULL;
                 day.ParseDate(everyday[count]);
 
-                if (date.IsSameDate(day))
+                wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
+
+                if (dateName == dayName)
                     return true;
             }
         }
@@ -563,7 +587,9 @@ bool MyFrame::isAssignedDay(cJSON* node)
                 wxDateTime day = NULL;
                 day.ParseDate(weekdays[count]);
 
-                if (date.IsSameDate(day))
+                wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
+
+                if (dateName == dayName)
                     return true;
             }
         }
@@ -574,7 +600,9 @@ bool MyFrame::isAssignedDay(cJSON* node)
                 wxDateTime day = NULL;
                 day.ParseDate(weekends[count]);
 
-                if (date.IsSameDate(day))
+                wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
+
+                if (dateName == dayName)
                     return true;
             }
         }
@@ -583,7 +611,9 @@ bool MyFrame::isAssignedDay(cJSON* node)
             wxDateTime day = NULL;
             day.ParseDate(node->valuestring);
 
-            if (date.IsSameDate(day))
+            wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
+
+            if (dateName == dayName)
                 return true;
         }
     }
