@@ -73,10 +73,10 @@ class MyFrame : public wxFrame
 
         void addMissingTasksToRecord(cJSON* node, vector<string> dailyIDs);
         void deleteExtraTasksFromRecord(cJSON* node, vector<string> dailyIDs);
-        void showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList, vector<cJSON*>& statusSet);
+        void showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList);
 
         cJSON* getTaskStatus(cJSON* node, string dailyID);
-        void updateTaskStatus(cJSON* node, cJSON* status);
+        void updateTaskStatus(cJSON* node, string dailyID);
 
         void resetScrolledWindow(wxPanel* panel);
         void showErrorMessage(wxString errorMessage);
@@ -100,7 +100,6 @@ class MyFrame : public wxFrame
         vector<string> titles;
         vector<string> dailyIDs;
         vector<wxCheckBox*> checkboxList;
-        vector<cJSON*> statusSet;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -211,10 +210,7 @@ void MyFrame::OnCheckbox(wxCommandEvent& event)
     for (int count = 0; count < checkboxList.size(); count++)
     {
         if (checkbox == checkboxList[count])
-        {
-            updateTaskStatus(record, statusSet[count]);
-            statusSet[count] = getTaskStatus(record, dailyIDs[count]);
-        }
+            updateTaskStatus(record, dailyIDs[count]);
     }
 }
 
@@ -287,8 +283,7 @@ void MyFrame::loadAndDisplayTaskData(string& filePath, cJSON* node)
         titles.clear();
         dailyIDs.clear();
         checkboxList.clear();
-        statusSet.clear();
-        
+
         cJSON* taskDatabase = getTaskDatabase(root);
         dailyRecord = getDailyRecord(root);
 
@@ -302,7 +297,7 @@ void MyFrame::loadAndDisplayTaskData(string& filePath, cJSON* node)
 
         addMissingTasksToRecord(record, dailyIDs);
         deleteExtraTasksFromRecord(record, dailyIDs);
-        showTasks(titles, dailyIDs, checkboxList, statusSet);
+        showTasks(titles, dailyIDs, checkboxList);
 
         saveFilePathToUserDataDir();
     }
@@ -683,7 +678,7 @@ void MyFrame::deleteExtraTasksFromRecord(cJSON* node, vector<string> dailyIDs)
     }
 }
 
-void MyFrame::showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList, vector<cJSON*>& statusSet)
+void MyFrame::showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList)
 {
     int position = 0;
 
@@ -709,7 +704,6 @@ void MyFrame::showTasks(vector<string> titles, vector<string> dailyIDs, vector<w
                 checkbox->Set3StateValue(wxCHK_UNDETERMINED);
         }
         checkboxList.push_back(checkbox);
-        statusSet.push_back(status);
        
         position += 30;
     }
@@ -728,17 +722,28 @@ cJSON* MyFrame::getTaskStatus(cJSON* node, string dailyID)
     return NULL;
 }
 
-void MyFrame::updateTaskStatus(cJSON* node, cJSON* status)
+void MyFrame::updateTaskStatus(cJSON* node, string dailyID)
 {
-    if (status->type == cJSON_Number)
+    cJSON* child = node->child;
+    while (child)
     {
-        if (status->valueint == 0)
-            cJSON_ReplaceItemInObject(node, status->string, cJSON_CreateString("N/A"));
-        else if (status->valueint == 1)
-            cJSON_ReplaceItemInObject(node, status->string, cJSON_CreateNumber(0));
+        if (child->string == dailyID)
+        {
+            if (child->type == cJSON_Number)
+            {
+                if (child->valueint == 0)
+                    cJSON_ReplaceItemInObject(node, child->string, cJSON_CreateString("N/A"));
+                else if (child->valueint == 1)
+                    cJSON_ReplaceItemInObject(node, child->string, cJSON_CreateNumber(0));
+            }
+            else if (child->type == cJSON_String)
+            {
+                if (strcmp(child->valuestring, "N/A") == 0)
+                    cJSON_ReplaceItemInObject(node, child->string, cJSON_CreateNumber(1));
+            }
+        }
+        child = child->next;
     }
-    else if (status->type == cJSON_String && strcmp(status->valuestring, "N/A") == 0)
-        cJSON_ReplaceItemInObject(node, status->string, cJSON_CreateNumber(1));
 }
 
 void MyFrame::resetScrolledWindow(wxPanel* panel)
