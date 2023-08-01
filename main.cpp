@@ -5,23 +5,23 @@
 
 #include "wx/wxprec.h"
 #include "wx/button.h"
-#include "wx/stattext.h"
-#include "wx/textctrl.h"
-#include "wx/statbox.h"
-#include "wx/sizer.h"
-#include "wx/scrolwin.h"
+#include "wx/calctrl.h"
 #include "wx/checkbox.h"
 #include "wx/filedlg.h"
-#include "wx/datectrl.h"
-#include "wx/calctrl.h"
-#include "wx/stdpaths.h"
 #include "wx/filename.h"
+#include "wx/notebook.h"
+#include "wx/scrolwin.h"
+#include "wx/stattext.h"
+#include "wx/stdpaths.h"
+#include "wx/textctrl.h"
+#include "wx/window.h"
 #include "../cJSON/cJSON.h"
-#include <string>
-#include <cstring>
 #include <cstdlib>
+#include <ctime>
+#include <cstring>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 using namespace std;
 
@@ -40,12 +40,6 @@ class MyFrame : public wxFrame
     public:
         MyFrame(const wxString& title);
 
-        void OnLoadButton(wxCommandEvent& event);
-        void OnOpenFileDialogButton(wxCommandEvent& event);
-        void OnCalendarCtrl(wxCalendarEvent& event);
-        void OnCheckbox(wxCommandEvent& event);
-        void OnSaveButton(wxCommandEvent& event);
-
     private:
         wxDECLARE_EVENT_TABLE();
 
@@ -53,65 +47,114 @@ class MyFrame : public wxFrame
         // functions
         /////////////////////////////////////////////////////////////////////////////
 
-        void loadAndDisplayTaskData(string& filePath, cJSON* node);
+        void OnOpenFileDialogButton(wxCommandEvent& event);
+        void OnLoadJSONFileButton(wxCommandEvent& event);
+        void OnTrackingCalendar(wxCalendarEvent& event);
+        void OnUpdateTaskStatusCheckbox(wxCommandEvent& event);
+        void OnAddTaskButton(wxCommandEvent& event);
+        void OnEditTaskButton(wxCommandEvent& event);
+        void OnDeleteTaskButton(wxCommandEvent& event);
+        void OnSelectAssignedDaysCheckbox(wxCommandEvent& event);
+        void OnCancelEditsButton(wxCommandEvent& event);
+        void OnApplyEditsButton(wxCommandEvent& event);
+        void OnSaveChangesButton(wxCommandEvent& event);
+
+        void setupTrackingPage();
+        void setupSchedulePage();
+        void setupTaskEditorPage(wxButton* editButton);
+        void createScrolledTrackingWindow();
+        void createScrolledScheduleWindow();
+        void createScrolledTaskEditorWindow();
+        void loadAndDisplayTaskDataToTrackingWindow();
+        void loadAndDisplayTaskDataToScheduleWindow();
+        void showTasksOnTrackingWindow();
+        void showTasksOnScheduleWindow();
+        void showAvailableTaskDaysOnTaskEditorWindow();
+        void showErrorMessageOnTrackingWindow(wxString errorMessage);
+        void showErrorMessageOnScheduleWindow(wxString errorMessage);
 
         string getUserDataDir();
-        void saveFilePathToUserDataDir();
-        string loadFilePathFromUserDataDir();
+        void saveFilePath();
+        string loadFilePath();
 
         string getUserName(cJSON* node);
-        cJSON* getTaskDatabase(cJSON* node);
-        string getDateForNextTaskDatabase(cJSON* node);
+        cJSON* getTaskDatabaseForSelectedDate(cJSON* node);
+        string getNextTaskDatabaseDate(cJSON* node);
+        cJSON* getTaskDatabaseForEffectiveDate(cJSON* node);
+        void getTitlesForSelectedDate(cJSON* node);
+        void getTitlesForEffectiveDate(cJSON* node);
+        void getDailyIDsForSelectedDate(cJSON* node);
+        bool isAssignedDay(cJSON* node);
+        bool matchesAssignedDay(cJSON* node);
         cJSON* getDailyRecord(cJSON* node);
         cJSON* getEntryFromDailyRecord(cJSON* node);
-        void addEntryToDailyRecord(cJSON* node);
-
-        void getTitles(cJSON* node, vector<string>& titles);
-        void getDailyIDs(cJSON* node, vector<string>& dailyIDs);
-        bool isAssignedDay(cJSON* node);
-        bool correspondsToAssignedDay(cJSON* node);
-
-        void addMissingTasksToRecord(cJSON* node, vector<string> dailyIDs);
-        void deleteExtraTasksFromRecord(cJSON* node, vector<string> dailyIDs);
-        void showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList);
-
         cJSON* getTaskStatus(cJSON* node, string dailyID);
-        void updateTaskStatus(cJSON* node, string dailyID);
 
-        void resetScrolledWindow(wxPanel* panel);
-        void showErrorMessage(wxString errorMessage);
+        void addToTaskDatabase(cJSON* node, string title);
+        string generateRandomDailyID();
+        void deleteFromTaskDatabase(cJSON* node, int element);
+        void addEntryToDailyRecord(cJSON* node);
+        void addMissingTasksToDailyRecordEntry(cJSON* node);
+        void deleteExtraTasksFromDailyRecordEntry(cJSON* node);
+        void updateTaskStatus(cJSON* node, string dailyID);
+        void applyEditsToTaskDatabase();
 
         /////////////////////////////////////////////////////////////////////////////
         // variables
         /////////////////////////////////////////////////////////////////////////////
 
-        wxTextCtrl* textField = NULL;
-        wxCalendarCtrl* calendarCtrl = NULL;
-        wxString userName = "";
-        wxPanel* panel = NULL;
-        wxScrolledWindow* scrolledWindow = NULL;
-        
-        wxDateTime date = NULL;
-        string filePath = "";
+        wxTextCtrl* JSONFilePathField = NULL; 
+        wxTextCtrl* taskEntryField = NULL;
+
+        wxNotebook* notebook = NULL;
+        wxWindow* trackingWindow = NULL;
+        wxWindow* scheduleWindow = NULL;
+        wxScrolledWindow* scrolledTrackingWindow = NULL;
+        wxScrolledWindow* scrolledScheduleWindow = NULL;
+        wxScrolledWindow* scrolledTaskEditorWindow = NULL;
+        wxCalendarCtrl* trackingCalendar = NULL;
+        wxCalendarCtrl* scheduleCalendar = NULL;
+
+        wxString userName = wxEmptyString;
+        wxDateTime selectedDate = NULL;
+        wxDateTime effectiveDate = NULL;
+        wxStaticText* dateLabel = NULL;
+
+        string filePath;
         cJSON* root = NULL;
+        cJSON* taskDatabase = NULL;
+        int whichTask = 0;
         cJSON* dailyRecord = NULL;
         cJSON* record = NULL;
 
-        vector<string> titles;
+        vector<string> titlesForSelectedDate;
         vector<string> dailyIDs;
-        vector<wxCheckBox*> checkboxList;
+        vector<wxCheckBox*> taskCheckboxes;
+
+        vector<string> titlesForEffectiveDate;
+        vector<wxButton*> editButtons;
+        vector<wxButton*> deleteButtons;
+        vector<string> selectedDays;
 };
 
-/////////////////////////////////////////////////////////////////////////////
-// event table 
-/////////////////////////////////////////////////////////////////////////////
+enum
+{
+    wxID_LOAD = 1001,
+    wxID_CHOOSE = 1002,
+};
 
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
-    EVT_BUTTON(wxEVT_BUTTON, MyFrame::OnLoadButton)
     EVT_BUTTON(wxID_OPEN, MyFrame::OnOpenFileDialogButton)
-    EVT_CALENDAR_SEL_CHANGED(wxID_ANY, MyFrame::OnCalendarCtrl)
-    EVT_CHECKBOX(wxEVT_CHECKBOX, MyFrame::OnCheckbox)
-    EVT_BUTTON(wxID_SAVE, MyFrame::OnSaveButton)
+    EVT_BUTTON(wxID_LOAD, MyFrame::OnLoadJSONFileButton)
+    EVT_CALENDAR_SEL_CHANGED(wxID_ANY, MyFrame::OnTrackingCalendar)
+    EVT_CHECKBOX(wxEVT_CHECKBOX, MyFrame::OnUpdateTaskStatusCheckbox)
+    EVT_BUTTON(wxID_ADD, MyFrame::OnAddTaskButton)
+    EVT_BUTTON(wxID_EDIT, MyFrame::OnEditTaskButton)
+    EVT_BUTTON(wxID_DELETE, MyFrame::OnDeleteTaskButton)
+    EVT_BUTTON(wxID_CANCEL, MyFrame::OnCancelEditsButton)
+    EVT_BUTTON(wxID_APPLY, MyFrame::OnApplyEditsButton)
+    EVT_CHECKBOX(wxID_CHOOSE, MyFrame::OnSelectAssignedDaysCheckbox)
+    EVT_BUTTON(wxID_SAVE, MyFrame::OnSaveChangesButton)
 wxEND_EVENT_TABLE()
 
 wxIMPLEMENT_APP(MyApp);
@@ -128,53 +171,74 @@ bool MyApp::OnInit()
     return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// main frame
-/////////////////////////////////////////////////////////////////////////////
-
 MyFrame::MyFrame(const wxString& title)
-       : wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(775, 250))
+       : wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(1000, 500))
 {
-    wxStaticText* label = new wxStaticText(this, wxID_ANY,
-        wxT("Enter path to JSON file"), wxPoint(25, 15), wxDefaultSize, wxALIGN_LEFT);
+    notebook = new wxNotebook(this, wxID_ANY, wxPoint(100, 75), wxSize(800, 350));
 
-    textField = new wxTextCtrl(this, wxID_ANY,
-        wxEmptyString, wxPoint(175, 10), wxSize(125, 20));
-    
-    string path = loadFilePathFromUserDataDir();
-    textField->SetValue(path);
+    trackingWindow = new wxWindow(notebook, wxID_ANY);
+    scheduleWindow = new wxWindow(notebook, wxID_ANY);
 
-    wxButton* loadButton = new wxButton(this, wxEVT_BUTTON, 
-        wxT("Load"), wxPoint(325, 10), wxDefaultSize);
+    notebook->AddPage(trackingWindow, "Tracking");
+    notebook->AddPage(scheduleWindow, "Schedule");
 
-    wxButton* openButton = new wxButton(this, wxID_OPEN,
-        wxT("Open"), wxPoint(425, 10), wxDefaultSize);
-    
-    calendarCtrl = new wxCalendarCtrl(this, wxID_ANY, 
-        wxDefaultDateTime, wxPoint(525, 10));
+    wxFont boldFont(wxFontInfo().Bold());
 
-    wxDateTime today = wxDateTime::Today();
+    wxStaticText* enterFilePathLabel = new wxStaticText(this, wxID_ANY,
+        wxT("Enter path to JSON file"), wxPoint(125, 15), wxDefaultSize, wxALIGN_LEFT);
 
-    wxStaticText* dateLabel = new wxStaticText(this, wxID_ANY,
-        (today.GetWeekDayName(today.GetWeekDay(), today.Name_Full) + wxT("\t") + today.Format("%m/%d/%Y")), 
-        wxPoint(350, 40), wxDefaultSize);
+    enterFilePathLabel->SetFont(boldFont);
 
-    panel = new wxPanel(this, wxID_ANY,
-        wxPoint(125, 75), wxSize(375, 75));
-        
-    resetScrolledWindow(panel);
+    JSONFilePathField = new wxTextCtrl(this, wxID_ANY,
+        wxEmptyString, wxPoint(275, 10), wxSize(400, -1));
 
-    wxButton* saveButton = new wxButton(this, wxID_SAVE, 
-        wxT("Save"), wxPoint(325, 175), wxDefaultSize);
+    string path = loadFilePath();
+    JSONFilePathField->SetValue(path);
+
+    wxButton* openFileDialogButton = new wxButton(this, wxID_OPEN,
+        wxT("Open"), wxPoint(700, 10), wxDefaultSize);
+
+    wxButton* loadJSONFileButton = new wxButton(this, wxID_LOAD,
+        wxT("Load"), wxPoint(800, 10), wxDefaultSize);
+
+    setupTrackingPage();
+    setupSchedulePage();
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// event handlers 
+// event handlers
 /////////////////////////////////////////////////////////////////////////////
 
-void MyFrame::OnLoadButton(wxCommandEvent& event)
-{
-    loadAndDisplayTaskData(filePath, root);
+void MyFrame::OnLoadJSONFileButton(wxCommandEvent& event)
+{   
+    createScrolledTrackingWindow();
+    createScrolledScheduleWindow();
+
+    wxString text = JSONFilePathField->GetValue();
+    filePath = text.ToStdString();
+
+    ifstream fin;
+    fin.open(filePath);
+
+    if (fin)
+    {
+        string line, file; 
+
+        while (getline(fin, line))
+            file += line; 
+        
+        root = cJSON_Parse(file.c_str());
+
+        loadAndDisplayTaskDataToTrackingWindow();
+        loadAndDisplayTaskDataToScheduleWindow();
+    }
+    else
+    {
+        wxString errorMessage = "File \"%s\" was not found";
+        showErrorMessageOnTrackingWindow(errorMessage);
+        showErrorMessageOnScheduleWindow(errorMessage);
+    }
+    fin.close();
 }
 
 void MyFrame::OnOpenFileDialogButton(wxCommandEvent& event)
@@ -184,37 +248,100 @@ void MyFrame::OnOpenFileDialogButton(wxCommandEvent& event)
     if (dialog.ShowModal() == wxID_OK) 
     {
         wxString path = dialog.GetPath();
-        textField->SetValue(path);
+        JSONFilePathField->SetValue(path);
     }
 }
 
-void MyFrame::OnCalendarCtrl(wxCalendarEvent& event)
+void MyFrame::OnTrackingCalendar(wxCalendarEvent& event)
 {
+    createScrolledTrackingWindow();
+
     if (root)
-    {
-        loadAndDisplayTaskData(filePath, root);
-    }
+        loadAndDisplayTaskDataToTrackingWindow();
     else
     {
-        resetScrolledWindow(panel);
-
         wxString errorMessage = "You must load a file";
-        showErrorMessage(errorMessage);
+        showErrorMessageOnTrackingWindow(errorMessage);
     }
 }
 
-void MyFrame::OnCheckbox(wxCommandEvent& event)
+void MyFrame::OnUpdateTaskStatusCheckbox(wxCommandEvent& event)
 {
     wxCheckBox* checkbox = (wxCheckBox*) event.GetEventObject();
 
-    for (int count = 0; count < checkboxList.size(); count++)
+    for (int count = 0; count < taskCheckboxes.size(); count++)
     {
-        if (checkbox == checkboxList[count])
+        if (checkbox == taskCheckboxes[count])
             updateTaskStatus(record, dailyIDs[count]);
     }
 }
 
-void MyFrame::OnSaveButton(wxCommandEvent& event)
+void MyFrame::OnAddTaskButton (wxCommandEvent& event)
+{
+    int taskNumber = titlesForEffectiveDate.size() + 1;
+    string title = "Task " + to_string(taskNumber);
+
+    addToTaskDatabase(taskDatabase, title);
+    titlesForEffectiveDate.push_back(title);
+    
+    createScrolledScheduleWindow();
+    showTasksOnScheduleWindow();
+}
+
+void MyFrame::OnEditTaskButton(wxCommandEvent& event)
+{
+    wxButton* editButton = (wxButton*) event.GetEventObject();
+
+    for (int count = 0; count < editButtons.size(); count++)
+    {
+        if (editButton == editButtons[count])
+            whichTask = count;
+    }
+    setupTaskEditorPage(editButton);
+}
+
+void MyFrame::OnDeleteTaskButton(wxCommandEvent& event)
+{
+    wxButton* deleteButton = (wxButton*) event.GetEventObject();
+
+    for (int count = 0; count < deleteButtons.size(); count++)
+    {
+        if (deleteButton == deleteButtons[count])
+        {
+            deleteFromTaskDatabase(taskDatabase, count);
+
+            titlesForEffectiveDate.erase(titlesForEffectiveDate.begin() + count);
+            editButtons.erase(editButtons.begin() + count);
+            deleteButtons.erase(deleteButtons.begin() + count);
+        }
+    }
+    createScrolledScheduleWindow();
+    showTasksOnScheduleWindow();
+}
+
+void MyFrame::OnSelectAssignedDaysCheckbox(wxCommandEvent& event)
+{
+    wxCheckBox* checkbox = (wxCheckBox*) event.GetEventObject();
+    wxString label = checkbox->GetLabel();
+    selectedDays.push_back(label.ToStdString());
+}
+
+void MyFrame::OnCancelEditsButton(wxCommandEvent& event)
+{
+    scheduleWindow->DestroyChildren();
+    setupSchedulePage();
+    loadAndDisplayTaskDataToScheduleWindow();
+}
+
+void MyFrame::OnApplyEditsButton(wxCommandEvent& event)
+{
+    applyEditsToTaskDatabase();
+    scheduleWindow->DestroyChildren();
+    setupSchedulePage();
+    loadAndDisplayTaskDataToScheduleWindow();
+}
+
+void MyFrame::OnSaveChangesButton(wxCommandEvent& event)
 {
     if (!filePath.empty())
     {    
@@ -233,81 +360,267 @@ void MyFrame::OnSaveButton(wxCommandEvent& event)
         }
         else
         {
-            resetScrolledWindow(panel);
+            createScrolledTrackingWindow();
 
             wxString errorMessage = "File \"%s\" could not be saved because it does not exist";
-            showErrorMessage(errorMessage);
+            showErrorMessageOnTrackingWindow(errorMessage);
         }
         fin.close();
     }
     else
     {
-        resetScrolledWindow(panel);
+        createScrolledTrackingWindow();
 
         wxString errorMessage = "You must load a file before it can be saved";
-        showErrorMessage(errorMessage);
+        showErrorMessageOnTrackingWindow(errorMessage);
     }
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// helper functions 
+// UI setup and display functions
 /////////////////////////////////////////////////////////////////////////////
 
-void MyFrame::loadAndDisplayTaskData(string& filePath, cJSON* node)
+void MyFrame::setupTrackingPage()
 {
-    resetScrolledWindow(panel);
-
-    date = calendarCtrl->GetDate();
-    
-    wxString text = textField->GetValue();
-    filePath = text.ToStdString();
-
-    ifstream fin;
-    fin.open(filePath);
-
-    if (fin)
-    {
-        string line, file; 
-
-        while (getline(fin, line))
-            file += line; 
+    trackingCalendar = new wxCalendarCtrl(trackingWindow, wxID_ANY, 
+        wxDefaultDateTime, wxPoint(560, 50));
         
-        root = cJSON_Parse(file.c_str());
+    createScrolledTrackingWindow();
 
-        if (userName.IsEmpty())
-        {
-            userName = getUserName(root);
-            wxStaticText* userNameLabel = new wxStaticText(this, wxID_ANY,
-                userName, wxPoint(125, 40), wxDefaultSize);
-        }
-        titles.clear();
-        dailyIDs.clear();
-        checkboxList.clear();
-
-        cJSON* taskDatabase = getTaskDatabase(root);
-        dailyRecord = getDailyRecord(root);
-
-        getTitles(taskDatabase, titles);
-        getDailyIDs(taskDatabase, dailyIDs);
-
-        if (!getEntryFromDailyRecord(root))
-            addEntryToDailyRecord(dailyRecord);
-
-        record = getEntryFromDailyRecord(root);
-
-        addMissingTasksToRecord(record, dailyIDs);
-        deleteExtraTasksFromRecord(record, dailyIDs);
-        showTasks(titles, dailyIDs, checkboxList);
-
-        saveFilePathToUserDataDir();
-    }
-    else
-    {
-        wxString errorMessage = "File \"%s\" was not found";
-        showErrorMessage(errorMessage);
-    }
-    fin.close();
+    wxButton* saveStatusButton = new wxButton(trackingWindow, wxID_SAVE, 
+        wxT("Save"), wxPoint(350, 275), wxDefaultSize);
 }
+
+void MyFrame::setupSchedulePage()
+{
+    scheduleCalendar = new wxCalendarCtrl(scheduleWindow, wxID_ANY, 
+        wxDefaultDateTime, wxPoint(20, 50));
+
+    createScrolledScheduleWindow();
+
+    wxButton* addTaskButton = new wxButton(scheduleWindow, wxID_ADD, wxT("Add"), wxPoint(350, 250));
+    wxButton* restoreButton = new wxButton(scheduleWindow, wxID_LOAD, wxT("Restore"), wxPoint(300, 275));
+    wxButton* saveButton = new wxButton(scheduleWindow, wxID_SAVE, wxT("Save"), wxPoint(400, 275));
+}
+
+void MyFrame::setupTaskEditorPage(wxButton* editButton)
+{
+    scheduleWindow->DestroyChildren();
+
+    for (int count = 0; count < editButtons.size(); count++)
+    {
+        if (editButton == editButtons[count])
+        {
+            wxString task(titlesForEffectiveDate[count]);
+            wxStaticText* editTaskLabel = new wxStaticText(scheduleWindow, wxID_ANY, 
+                (wxT("Editing \"") + task + wxT("\"")), wxPoint(250, 25));
+
+            wxFont boldFont(wxFontInfo(16).Bold());
+            editTaskLabel->SetFont(boldFont);
+        }
+    }
+    taskEntryField = new wxTextCtrl(scheduleWindow, wxID_ANY, 
+        wxEmptyString, wxPoint(200, 50), wxSize(400, -1));
+
+    createScrolledTaskEditorWindow();
+    showAvailableTaskDaysOnTaskEditorWindow();
+
+    wxButton* cancelButton = new wxButton(scheduleWindow, wxID_CANCEL, wxT("Cancel"), wxPoint(300, 275));
+    wxButton* applyButton = new wxButton(scheduleWindow, wxID_APPLY, wxT("Apply"), wxPoint(400, 275));
+}
+
+void MyFrame::createScrolledTrackingWindow()
+{
+    if (scrolledTrackingWindow != NULL)
+        scrolledTrackingWindow->DestroyChildren();
+
+    scrolledTrackingWindow = new wxScrolledWindow(trackingWindow, wxID_ANY, 
+        wxPoint(20, 50), wxSize(525, 150), wxVSCROLL);
+
+    int pixelsPerUnitX = 0;
+    int pixelsPerUnitY = 10;
+    int noUnitsX = 0;
+    int noUnitsY = 20;
+
+    scrolledTrackingWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
+        noUnitsX, noUnitsY);
+}
+
+void MyFrame::createScrolledScheduleWindow()
+{
+    if (scrolledScheduleWindow != NULL)
+        scrolledScheduleWindow->DestroyChildren();
+
+    scrolledScheduleWindow = new wxScrolledWindow(scheduleWindow, wxID_ANY, 
+        wxPoint(255, 50), wxSize(525, 150), wxVSCROLL);
+
+    int pixelsPerUnitX = 0;
+    int pixelsPerUnitY = 10;
+    int noUnitsX = 0;
+    int noUnitsY = 20;
+
+    scrolledScheduleWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
+        noUnitsX, noUnitsY);
+}
+
+void MyFrame::createScrolledTaskEditorWindow()
+{
+   scrolledTaskEditorWindow = new wxScrolledWindow(scheduleWindow, wxID_ANY, 
+        wxPoint(250, 100), wxSize(300, 150), wxVSCROLL);
+
+    int pixelsPerUnitX = 0;
+    int pixelsPerUnitY = 10;
+    int noUnitsX = 0;
+    int noUnitsY = 20;
+
+    scrolledTaskEditorWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
+        noUnitsX, noUnitsY);
+}
+
+void MyFrame::loadAndDisplayTaskDataToTrackingWindow()
+{
+    selectedDate = trackingCalendar->GetDate();
+
+    if (userName.IsEmpty())
+    {
+        wxFont boldFont(wxFontInfo().Bold());
+
+        userName = getUserName(root);
+
+        wxStaticText* userNameLabel = new wxStaticText(trackingWindow, wxID_ANY,
+            userName, wxPoint(20, 10), wxDefaultSize);
+
+        userNameLabel->SetFont(boldFont);
+    }
+    titlesForSelectedDate.clear();
+    dailyIDs.clear();
+    taskCheckboxes.clear();
+
+    cJSON* taskDatabase = getTaskDatabaseForSelectedDate(root);
+    dailyRecord = getDailyRecord(root);
+
+    getTitlesForSelectedDate(taskDatabase);
+    getDailyIDsForSelectedDate(taskDatabase);
+
+    if (!getEntryFromDailyRecord(root))
+        addEntryToDailyRecord(dailyRecord);
+
+    record = getEntryFromDailyRecord(root);
+
+    addMissingTasksToDailyRecordEntry(record);
+    deleteExtraTasksFromDailyRecordEntry(record);
+    showTasksOnTrackingWindow();
+
+    saveFilePath();
+}
+
+void MyFrame::loadAndDisplayTaskDataToScheduleWindow()
+{
+    effectiveDate = scheduleCalendar->GetDate();
+
+    titlesForEffectiveDate.clear();
+    editButtons.clear();
+    deleteButtons.clear();
+
+    taskDatabase = getTaskDatabaseForEffectiveDate(root);
+    getTitlesForEffectiveDate(taskDatabase);
+
+    showTasksOnScheduleWindow();
+}
+
+void MyFrame::showTasksOnTrackingWindow()
+{
+    int position = 0;
+
+    for (int count = 0; count < titlesForSelectedDate.size(); count++)
+    {
+        wxString title(titlesForSelectedDate[count]);
+        
+        cJSON* status = getTaskStatus(record, dailyIDs[count]);
+        
+        wxCheckBox* checkbox = new wxCheckBox(scrolledTrackingWindow, wxEVT_CHECKBOX,
+            title, wxPoint(0, position), wxDefaultSize, wxCHK_3STATE + wxCHK_ALLOW_3RD_STATE_FOR_USER);
+
+        if (status->valueint)
+        {
+            if (status->valueint == 0)
+                checkbox->Set3StateValue(wxCHK_UNCHECKED);
+            else if (status->valueint == 1)
+                checkbox->Set3StateValue(wxCHK_CHECKED);
+        }
+        else if (status->valuestring)
+        {
+            if (strcmp(status->valuestring, "N/A") == 0)
+                checkbox->Set3StateValue(wxCHK_UNDETERMINED);
+        }
+        taskCheckboxes.push_back(checkbox);
+       
+        position += 30;
+    }
+}
+
+void MyFrame::showTasksOnScheduleWindow()
+{
+    editButtons.clear();
+    deleteButtons.clear();
+
+    int position = 0; 
+
+    for (int count = 0; count < titlesForEffectiveDate.size(); count++)
+    {
+        wxString title(titlesForEffectiveDate[count]);
+
+        wxStaticText* taskLabel = new wxStaticText(scrolledScheduleWindow, wxID_ANY, 
+            title, wxPoint(0, position));
+
+        wxButton* editButton = new wxButton(scrolledScheduleWindow, wxID_EDIT, 
+            wxT("Edit"), wxPoint(300, position));
+
+        wxButton* deleteButton = new wxButton(scrolledScheduleWindow, wxID_DELETE, 
+            wxT("Delete"), wxPoint(400, position));
+
+        editButtons.push_back(editButton);
+        deleteButtons.push_back(deleteButton);
+
+        position += 30;
+    }
+}
+
+void MyFrame::showAvailableTaskDaysOnTaskEditorWindow()
+{
+    vector<wxString> availableTaskDays = {"Everyday", "Weekdays", "Weekends",
+                                            "Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+                                            "Saturday", "Sunday"};
+
+    int position = 0;
+
+    for (int count = 0; count < availableTaskDays.size(); count++)
+    {
+        wxCheckBox* checkbox = new wxCheckBox(scrolledTaskEditorWindow, wxID_CHOOSE, 
+            availableTaskDays[count], wxPoint(0, position));
+        
+        position += 30;
+    }
+    int windowHeight = position;
+    scrolledTaskEditorWindow->SetVirtualSize(wxSize(-1, windowHeight));
+    scrolledTaskEditorWindow->SetScrollRate(0, 10);
+}
+
+void MyFrame::showErrorMessageOnTrackingWindow(wxString errorMessage)
+{
+    wxStaticText* errorMessageLabel = new wxStaticText(scrolledTrackingWindow, wxID_ANY, 
+        wxString::Format(errorMessage, filePath.c_str()), wxPoint(5, 5));
+}
+
+void MyFrame::showErrorMessageOnScheduleWindow(wxString errorMessage)
+{
+    wxStaticText* errorMessageLabel = new wxStaticText(scrolledScheduleWindow, wxID_ANY, 
+        wxString::Format(errorMessage, filePath.c_str()), wxPoint(5, 5));
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// file I/O functions
+/////////////////////////////////////////////////////////////////////////////
 
 string MyFrame::getUserDataDir()
 {
@@ -324,7 +637,7 @@ string MyFrame::getUserDataDir()
     return path;
 }
 
-void MyFrame::saveFilePathToUserDataDir()
+void MyFrame::saveFilePath()
 {
     string path = getUserDataDir();
 
@@ -334,7 +647,7 @@ void MyFrame::saveFilePathToUserDataDir()
     fout << filePath;
 }
 
-string MyFrame::loadFilePathFromUserDataDir()
+string MyFrame::loadFilePath()
 {
     string path = getUserDataDir();
     string filePath;
@@ -345,6 +658,10 @@ string MyFrame::loadFilePathFromUserDataDir()
     fin >> filePath;
     return filePath;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// JSON parsing functions
+/////////////////////////////////////////////////////////////////////////////
 
 string MyFrame::getUserName(cJSON* node)
 {
@@ -359,15 +676,15 @@ string MyFrame::getUserName(cJSON* node)
     return NULL;
 }
 
-cJSON* MyFrame::getTaskDatabase(cJSON* node)
+cJSON* MyFrame::getTaskDatabaseForSelectedDate(cJSON* node)
 {
     if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
         while (child)
         {
-            if (getTaskDatabase(child))
-                return getTaskDatabase(child);
+            if (getTaskDatabaseForSelectedDate(child))
+                return getTaskDatabaseForSelectedDate(child);
 
             child = child->next;
         }
@@ -385,9 +702,9 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
                 if (node->next)
                 {
                     afterDate.ParseDate(child->valuestring);
-                    beforeDate.ParseDate(getDateForNextTaskDatabase(node->next));
+                    beforeDate.ParseDate(getNextTaskDatabaseDate(node->next));
             
-                    if (date.IsSameDate(afterDate) || date.IsStrictlyBetween(afterDate, beforeDate))
+                    if (selectedDate.IsSameDate(afterDate) || selectedDate.IsStrictlyBetween(afterDate, beforeDate))
                     {
                         cJSON* child = node->child;
                         while (child)
@@ -403,7 +720,7 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
                 {
                     afterDate.ParseDate(child->valuestring);
 
-                    if (date.IsSameDate(afterDate) || date.IsLaterThan(afterDate))
+                    if (selectedDate.IsSameDate(afterDate) || selectedDate.IsLaterThan(afterDate))
                     {
                         cJSON* child = node->child;
                         while (child)
@@ -416,8 +733,8 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
                     }
                 }
             }
-            else if (getTaskDatabase(child))
-                return getTaskDatabase(child);
+            else if (getTaskDatabaseForSelectedDate(child))
+                return getTaskDatabaseForSelectedDate(child);
             
             child = child->next;
         }
@@ -425,7 +742,7 @@ cJSON* MyFrame::getTaskDatabase(cJSON* node)
     return NULL;
 } 
 
-string MyFrame::getDateForNextTaskDatabase(cJSON* node)
+string MyFrame::getNextTaskDatabaseDate(cJSON* node)
 {
     cJSON* child = node->child;
     while (child)
@@ -438,64 +755,58 @@ string MyFrame::getDateForNextTaskDatabase(cJSON* node)
     return NULL;
 }
 
-cJSON* MyFrame::getDailyRecord(cJSON* node)
-{
-    cJSON* child = node->child;
-    while (child)
-    {
-        if (strcmp(child->string, "daily_record") == 0)
-            return child;
-
-        child = child->next;
-    }
-    return NULL;
-}
-
-cJSON* MyFrame::getEntryFromDailyRecord(cJSON* node)
-{
-    cJSON* child = node->child;
-    while (child)
-    {
-        if (strcmp(child->string, "daily_record") == 0)
-        {
-            cJSON* grandChild = child->child;
-            while (grandChild)
-            {
-                wxDateTime timestamp = NULL;
-                timestamp.ParseDate(grandChild->string);
-
-                if (date.IsSameDate(timestamp))
-                    return grandChild;
-                
-                grandChild = grandChild->next;
-            }
-        }
-        child = child->next;
-    }
-    return NULL;
-}
-
-void MyFrame::addEntryToDailyRecord(cJSON* node)
-{
-    cJSON* record = cJSON_CreateObject();
-
-    for (int count = 0; count < dailyIDs.size(); count++)
-        cJSON_AddItemToObject(record, dailyIDs[count].c_str(), cJSON_CreateNumber(0));
-
-    cJSON_ReplaceItemInObject(record, date.Format("%m/%d/%Y"), record);
-
-    record->next = node->child;
-    node->child = record;
-}
-
-void MyFrame::getTitles(cJSON* node, vector<string>& titles)
+cJSON* MyFrame::getTaskDatabaseForEffectiveDate(cJSON* node)
 {
     if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
         while (child)
         {
-            getTitles(child, titles);
+            if (getTaskDatabaseForEffectiveDate(child))
+                return getTaskDatabaseForEffectiveDate(child);
+
+            child = child->next;
+        }
+    }
+    else if (node->type == cJSON_Object)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            if (strcmp(child->string, "date") == 0)
+            {
+                wxDateTime date = NULL;
+                date.ParseDate(child->valuestring);
+
+                if (effectiveDate.IsSameDate(date))
+                {
+                    cJSON* child = node->child;
+                    while (child)
+                    {
+                        if (strcmp(child->string, "taskdb") == 0)
+                            return child;
+
+                        child = child->next;
+                    }
+                }
+            }
+            else if (getTaskDatabaseForEffectiveDate(child))
+                return getTaskDatabaseForEffectiveDate(child);
+            
+            child = child->next;
+        }
+    }
+    return NULL;
+}
+
+void MyFrame::getTitlesForSelectedDate(cJSON* node)
+{
+    if (node->type == cJSON_Array)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            getTitlesForSelectedDate(child);
             child = child->next;
         }
     }
@@ -513,7 +824,7 @@ void MyFrame::getTitles(cJSON* node, vector<string>& titles)
                     while (child)
                     {
                         if (strcmp(child->string, "title") == 0)
-                            titles.push_back(child->valuestring);
+                            titlesForSelectedDate.push_back(child->valuestring);
                         
                         child = child->next;
                     }
@@ -524,14 +835,39 @@ void MyFrame::getTitles(cJSON* node, vector<string>& titles)
     }
 }
 
-void MyFrame::getDailyIDs(cJSON* node, vector<string>& dailyIDs)
+void MyFrame::getTitlesForEffectiveDate(cJSON* node)
 {
     if (node->type == cJSON_Array)
     {
         cJSON* child = node->child;
         while (child)
         {
-            getDailyIDs(child, dailyIDs);
+            getTitlesForEffectiveDate(child);
+            child = child->next;
+        }
+    }
+    else if (node->type == cJSON_Object)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            if (strcmp(child->string, "title") == 0)
+            {
+                titlesForEffectiveDate.push_back(child->valuestring);
+            }
+            child = child->next;
+        }
+    }
+}
+
+void MyFrame::getDailyIDsForSelectedDate(cJSON* node)
+{
+    if (node->type == cJSON_Array)
+    {
+        cJSON* child = node->child;
+        while (child)
+        {
+            getDailyIDsForSelectedDate(child);
             child = child->next;
         }
     }
@@ -566,7 +902,7 @@ bool MyFrame::isAssignedDay(cJSON* node)
         cJSON* child = node->child;
         while (child)
         {
-            if (correspondsToAssignedDay(child))
+            if (matchesAssignedDay(child))
                 return true;
 
             child = child->next;
@@ -574,15 +910,15 @@ bool MyFrame::isAssignedDay(cJSON* node)
     }
     else
     {
-        if (correspondsToAssignedDay(node))
+        if (matchesAssignedDay(node))
             return true;
     }
     return false;
 }
 
-bool MyFrame::correspondsToAssignedDay(cJSON* node)
+bool MyFrame::matchesAssignedDay(cJSON* node)
 {
-    wxString dateName = date.GetWeekDayName(date.GetWeekDay(), date.Name_Full); 
+    wxString dateName = selectedDate.GetWeekDayName(selectedDate.GetWeekDay(), selectedDate.Name_Full); 
 
     vector<string> everyday = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
     vector<string> weekdays = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
@@ -640,7 +976,106 @@ bool MyFrame::correspondsToAssignedDay(cJSON* node)
     return false;
 }
 
-void MyFrame::addMissingTasksToRecord(cJSON* node, vector<string> dailyIDs)
+cJSON* MyFrame::getDailyRecord(cJSON* node)
+{
+    cJSON* child = node->child;
+    while (child)
+    {
+        if (strcmp(child->string, "daily_record") == 0)
+            return child;
+
+        child = child->next;
+    }
+    return NULL;
+}
+
+cJSON* MyFrame::getEntryFromDailyRecord(cJSON* node)
+{
+    cJSON* child = node->child;
+    while (child)
+    {
+        if (strcmp(child->string, "daily_record") == 0)
+        {
+            cJSON* grandChild = child->child;
+            while (grandChild)
+            {
+                wxDateTime timestamp = NULL;
+                timestamp.ParseDate(grandChild->string);
+
+                if (selectedDate.IsSameDate(timestamp))
+                    return grandChild;
+                
+                grandChild = grandChild->next;
+            }
+        }
+        child = child->next;
+    }
+    return NULL;
+}
+
+cJSON* MyFrame::getTaskStatus(cJSON* node, string dailyID)
+{
+    cJSON* child = node->child;
+    while (child)
+    {
+        if (child->string == dailyID)
+            return child;
+
+        child = child->next;
+    }
+    return NULL;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// JSON manipulation functions
+/////////////////////////////////////////////////////////////////////////////
+
+void MyFrame::addToTaskDatabase(cJSON* node, string title)
+{
+    cJSON* task = cJSON_CreateObject();
+    string randomDailyID = generateRandomDailyID();
+
+    cJSON_AddItemToObject(task, "title", cJSON_CreateString(title.c_str()));
+    cJSON_AddItemToObject(task, "daily_id", cJSON_CreateString(randomDailyID.c_str()));
+
+    cJSON_AddItemToArray(node, task);
+}
+
+string MyFrame::generateRandomDailyID()
+{
+    srand(time(nullptr));
+
+    string randomDailyID;
+    vector<string> alphabet = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", 
+                                "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
+
+    for (int count = 0; count < 9; count++)
+    {
+        string letter = alphabet[(rand() % alphabet.size())];
+        randomDailyID += letter;
+    }
+    return randomDailyID;
+}
+
+void MyFrame::deleteFromTaskDatabase(cJSON* node, int element)
+{
+    cJSON_DeleteItemFromArray(node, element);
+}
+
+void MyFrame::addEntryToDailyRecord(cJSON* node)
+{
+    cJSON* record = cJSON_CreateObject();
+
+    for (int count = 0; count < dailyIDs.size(); count++)
+        cJSON_AddItemToObject(record, dailyIDs[count].c_str(), cJSON_CreateNumber(0));
+
+    cJSON_ReplaceItemInObject(record, selectedDate.Format("%m/%d/%Y"), record);
+
+    record->next = node->child;
+    node->child = record;
+}
+
+void MyFrame::addMissingTasksToDailyRecordEntry(cJSON* node)
 {
     for (int count = 0; count < dailyIDs.size(); count++)
     {
@@ -659,7 +1094,7 @@ void MyFrame::addMissingTasksToRecord(cJSON* node, vector<string> dailyIDs)
     }
 }
 
-void MyFrame::deleteExtraTasksFromRecord(cJSON* node, vector<string> dailyIDs)
+void MyFrame::deleteExtraTasksFromDailyRecordEntry(cJSON* node)
 {
     cJSON* child = node->child;
     while (child)
@@ -676,50 +1111,6 @@ void MyFrame::deleteExtraTasksFromRecord(cJSON* node, vector<string> dailyIDs)
 
         child = child->next;
     }
-}
-
-void MyFrame::showTasks(vector<string> titles, vector<string> dailyIDs, vector<wxCheckBox*>& checkboxList)
-{
-    int position = 0;
-
-    for (int count = 0; count < titles.size(); count++)
-    {
-        wxString title(titles[count]);
-        
-        cJSON* status = getTaskStatus(record, dailyIDs[count]);
-        
-        wxCheckBox* checkbox = new wxCheckBox(scrolledWindow, wxEVT_CHECKBOX,
-            title, wxPoint(0, position), wxDefaultSize, wxCHK_3STATE + wxCHK_ALLOW_3RD_STATE_FOR_USER);
-
-        if (status->valueint)
-        {
-            if (status->valueint == 0)
-                checkbox->Set3StateValue(wxCHK_UNCHECKED);
-            else if (status->valueint == 1)
-                checkbox->Set3StateValue(wxCHK_CHECKED);
-        }
-        else if (status->valuestring)
-        {
-            if (strcmp(status->valuestring, "N/A") == 0)
-                checkbox->Set3StateValue(wxCHK_UNDETERMINED);
-        }
-        checkboxList.push_back(checkbox);
-       
-        position += 30;
-    }
-}
-
-cJSON* MyFrame::getTaskStatus(cJSON* node, string dailyID)
-{
-    cJSON* child = node->child;
-    while (child)
-    {
-        if (child->string == dailyID)
-            return child;
-
-        child = child->next;
-    }
-    return NULL;
 }
 
 void MyFrame::updateTaskStatus(cJSON* node, string dailyID)
@@ -746,25 +1137,23 @@ void MyFrame::updateTaskStatus(cJSON* node, string dailyID)
     }
 }
 
-void MyFrame::resetScrolledWindow(wxPanel* panel)
+void MyFrame::applyEditsToTaskDatabase()
 {
-    if (scrolledWindow != NULL)
-        scrolledWindow->Destroy();
+    wxString title = taskEntryField->GetValue();
+    cJSON* task = cJSON_GetArrayItem(taskDatabase, whichTask);
+    cJSON_ReplaceItemInObject(task, "title", cJSON_CreateString(title));
 
-    scrolledWindow = new wxScrolledWindow(panel, wxID_ANY, 
-        wxPoint(0, 0), wxSize(375, 75), wxVSCROLL);
+    if (selectedDays.size() == 1)
+    {
+        string assignedDays = selectedDays.front();
+        cJSON_ReplaceItemInObject(task, "assigned_days", cJSON_CreateString(assignedDays.c_str()));
+    }
+    else if (selectedDays.size() > 1)
+    {
+        cJSON* assignedDays = cJSON_CreateArray();
+        for (int count = 0; count < selectedDays.size(); count++)
+            cJSON_AddItemToArray(assignedDays, cJSON_CreateString(selectedDays[count].c_str()));
 
-    int pixelsPerUnitX = 0;
-    int pixelsPerUnitY = 10;
-    int noUnitsX = 0;
-    int noUnitsY = 20;
-
-    scrolledWindow->SetScrollbars(pixelsPerUnitX, pixelsPerUnitY,
-        noUnitsX, noUnitsY);
-}
-
-void MyFrame::showErrorMessage(wxString errorMessage)
-{
-    wxStaticText* errorMessageLabel = new wxStaticText(scrolledWindow, wxID_ANY, 
-        wxString::Format(errorMessage, filePath.c_str()), wxPoint(5, 5));
+        cJSON_ReplaceItemInObject(task, "assigned_days", assignedDays);
+    }
 }
