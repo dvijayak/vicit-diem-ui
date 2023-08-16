@@ -6,6 +6,7 @@
 *.lo
 *.o
 *.obj
+*.ilk
 
 # Precompiled Headers
 *.gch
@@ -25,9 +26,14 @@
 *.la
 *.a
 *.lib
+*.exp
+
+# Debug symbols
+*.pdb
 
 # Executables
 *.exe
+*.exe.manifest
 *.out
 *.app
 vicit-diem

@@ -126,8 +126,8 @@ class MyFrame : public wxFrame
         int nonEffectiveCalendarClicks = 0;
 
         wxString userName = wxEmptyString;
-        wxDateTime selectedDate = NULL;
-        wxDateTime effectiveDate = NULL;
+        wxDateTime selectedDate;
+        wxDateTime effectiveDate;
         wxStaticText* dateLabel = NULL;
 
         string filePath;
@@ -203,11 +203,11 @@ MyFrame::MyFrame(const wxString& title)
     string path = loadFilePath();
     JSONFilePathField->SetValue(path);
 
-    wxButton* openFileDialogButton = new wxButton(this, wxID_OPEN,
-        wxT("Open"), wxPoint(700, 10), wxDefaultSize);
+    new wxButton(this, wxID_OPEN,
+        wxT("Open"), wxPoint(700, 10), wxDefaultSize); // openFileDialogButton
 
-    wxButton* loadJSONFileButton = new wxButton(this, wxID_LOAD,
-        wxT("Load"), wxPoint(800, 10), wxDefaultSize);
+    new wxButton(this, wxID_LOAD,
+        wxT("Load"), wxPoint(800, 10), wxDefaultSize); // loadJSONFileButton
 
     setupTrackingPage();
     setupSchedulePage();
@@ -236,6 +236,8 @@ void MyFrame::bindEventHandlers()
 
 void MyFrame::OnLoadJSONFileButton(wxCommandEvent& event)
 {   
+    event;
+
     createScrolledTrackingWindow();
     createScrolledScheduleWindow();
 
@@ -268,6 +270,8 @@ void MyFrame::OnLoadJSONFileButton(wxCommandEvent& event)
 
 void MyFrame::OnOpenFileDialogButton(wxCommandEvent& event)
 {
+    event;
+
     wxFileDialog dialog(this);
 
     if (dialog.ShowModal() == wxID_OK) 
@@ -279,6 +283,8 @@ void MyFrame::OnOpenFileDialogButton(wxCommandEvent& event)
 
 void MyFrame::OnCalendarCtrl(wxCalendarEvent& event)
 {
+    event;
+
     createScrolledTrackingWindow();
     createScrolledScheduleWindow();
 
@@ -308,6 +314,8 @@ void MyFrame::OnUpdateTaskStatusCheckbox(wxCommandEvent& event)
 
 void MyFrame::OnAddTaskButton (wxCommandEvent& event)
 {
+    event;
+
     int taskNumber = effectiveDateTitles.size() + 1;
     string title = "Task " + to_string(taskNumber);
 
@@ -359,12 +367,16 @@ void MyFrame::OnSelectassignedTaskDaysCheckbox(wxCommandEvent& event)
 
 void MyFrame::OnCancelEditsButton(wxCommandEvent& event)
 {
+    event;
+
     taskEditorWindow->Destroy();
     scheduleWindow->Show();
 }
 
 void MyFrame::OnApplyEditsButton(wxCommandEvent& event)
 {
+    event;
+
     applyEditsToTaskDatabase();
     taskEditorWindow->Destroy();
     scheduleWindow->Show();
@@ -373,6 +385,8 @@ void MyFrame::OnApplyEditsButton(wxCommandEvent& event)
 
 void MyFrame::OnSaveChangesButton(wxCommandEvent& event)
 {
+    event;
+
     if (!filePath.empty())
     {    
         ifstream fin;
@@ -423,8 +437,8 @@ void MyFrame::setupTrackingPage()
         
     createScrolledTrackingWindow();
 
-    wxButton* saveStatusButton = new wxButton(trackingWindow, wxID_SAVE, 
-        wxT("Save"), wxPoint(350, 275), wxDefaultSize);
+    new wxButton(trackingWindow, wxID_SAVE,
+        wxT("Save"), wxPoint(350, 275), wxDefaultSize); // saveStatusButton
 }
 
 void MyFrame::setupSchedulePage()
@@ -434,9 +448,9 @@ void MyFrame::setupSchedulePage()
 
     createScrolledScheduleWindow();
 
-    wxButton* addTaskButton = new wxButton(scheduleWindow, wxID_ADD, wxT("Add"), wxPoint(350, 250));
-    wxButton* revertButton = new wxButton(scheduleWindow, wxID_LOAD, wxT("Revert"), wxPoint(300, 275));
-    wxButton* saveButton = new wxButton(scheduleWindow, wxID_SAVE, wxT("Save"), wxPoint(400, 275));
+    new wxButton(scheduleWindow, wxID_ADD, wxT("Add"), wxPoint(350, 250)); // addTaskButton
+    new wxButton(scheduleWindow, wxID_LOAD, wxT("Revert"), wxPoint(300, 275)); // revertButton
+    new wxButton(scheduleWindow, wxID_SAVE, wxT("Save"), wxPoint(400, 275)); // saveButton
 }
 
 void MyFrame::setupTaskEditorPage(wxButton* editButton)
@@ -464,8 +478,8 @@ void MyFrame::setupTaskEditorPage(wxButton* editButton)
             showAvailableTaskDaysOnTaskEditorWindow(effectiveDateTitles[count]);
         }   
     }
-    wxButton* cancelButton = new wxButton(taskEditorWindow, wxID_CANCEL, wxT("Cancel"), wxPoint(300, 275));
-    wxButton* okButton = new wxButton(taskEditorWindow, wxID_OK, wxT("Ok"), wxPoint(400, 275));
+    new wxButton(taskEditorWindow, wxID_CANCEL, wxT("Cancel"), wxPoint(300, 275)); // cancelButton
+    new wxButton(taskEditorWindow, wxID_OK, wxT("Ok"), wxPoint(400, 275)); // okButton
 }
 
 void MyFrame::createScrolledTrackingWindow()
@@ -640,8 +654,8 @@ void MyFrame::showTasksOnScheduleWindow()
     {
         wxString title(effectiveDateTitles[count]);
 
-        wxStaticText* taskLabel = new wxStaticText(scrolledScheduleWindow, wxID_ANY, 
-            title, wxPoint(0, position));
+        new wxStaticText(scrolledScheduleWindow, wxID_ANY, 
+            title, wxPoint(0, position)); // taskLabel
 
         wxButton* editButton = new wxButton(scrolledScheduleWindow, wxID_EDIT, 
             wxT("Edit"), wxPoint(300, position));
@@ -683,14 +697,14 @@ void MyFrame::showAvailableTaskDaysOnTaskEditorWindow(string title)
 
 void MyFrame::showErrorMessageOnTrackingWindow(wxString errorMessage)
 {
-    wxStaticText* errorMessageLabel = new wxStaticText(scrolledTrackingWindow, wxID_ANY, 
-        wxString::Format(errorMessage, filePath.c_str()), wxPoint(5, 5));
+    new wxStaticText(scrolledTrackingWindow, wxID_ANY, 
+        wxString::Format(errorMessage, filePath.c_str()), wxPoint(5, 5)); // errorMessageLabel
 }
 
 void MyFrame::showErrorMessageOnScheduleWindow(wxString errorMessage)
 {
-    wxStaticText* errorMessageLabel = new wxStaticText(scrolledScheduleWindow, wxID_ANY, 
-        wxString::Format(errorMessage, filePath.c_str()), wxPoint(5, 5));
+    new wxStaticText(scrolledScheduleWindow, wxID_ANY, 
+        wxString::Format(errorMessage, filePath.c_str()), wxPoint(5, 5)); // errorMessageLabel
 }
 
 void MyFrame::highlightEffectiveDates()
@@ -699,7 +713,7 @@ void MyFrame::highlightEffectiveDates()
 
     for (int count = 0; count < effectiveDates.size(); count++)
     {
-        int effectiveDateMonth = effectiveDates[count].GetMonth();
+        // int effectiveDateMonth = effectiveDates[count].GetMonth();
         int effectiveDateDay = effectiveDates[count].GetDay();
         scheduleCalendar->ResetAttr(effectiveDateDay);
     }
@@ -749,13 +763,13 @@ void MyFrame::saveFilePath()
 string MyFrame::loadFilePath()
 {
     string path = getUserDataDir();
-    string filePath;
+    string loadedFilePath = "";
 
     ifstream fin;
     fin.open(path);
 
-    fin >> filePath;
-    return filePath;
+    fin >> loadedFilePath;
+    return loadedFilePath;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -808,8 +822,8 @@ cJSON* MyFrame::getTaskDatabaseForSelectedDate(cJSON* node)
         {
             if (strcmp(child->string, "date") == 0)
             {
-                wxDateTime afterDate = NULL;
-                wxDateTime beforeDate = NULL;
+                wxDateTime afterDate;
+                wxDateTime beforeDate;
 
                 if (node->next)
                 {
@@ -887,7 +901,7 @@ cJSON* MyFrame::getEffectiveDateTaskDatabase(cJSON* node)
         {
             if (strcmp(child->string, "date") == 0)
             {
-                wxDateTime date = NULL;
+                wxDateTime date;
                 date.ParseDate(child->valuestring);
 
                 if (effectiveDate.IsSameDate(date))
@@ -929,7 +943,7 @@ void MyFrame::getEffectiveDates(cJSON* node)
         {
             if (strcmp(child->string, "date") == 0)
             {
-                wxDateTime date = NULL;
+                wxDateTime date;
                 date.ParseDate(child->valuestring);
                 effectiveDates.push_back(date);
             }
@@ -1110,7 +1124,7 @@ bool MyFrame::matchesAssignedDay(cJSON* node)
     {
         for (int count = 0; count < everyday.size(); count++)
         {
-            wxDateTime day = NULL;
+            wxDateTime day;
             day.ParseDate(everyday[count]);
 
             wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
@@ -1123,7 +1137,7 @@ bool MyFrame::matchesAssignedDay(cJSON* node)
     {
         for (int count = 0; count < weekdays.size(); count++)
         {
-            wxDateTime day = NULL;
+            wxDateTime day;
             day.ParseDate(weekdays[count]);
 
             wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
@@ -1136,7 +1150,7 @@ bool MyFrame::matchesAssignedDay(cJSON* node)
     {
         for (int count = 0; count < weekends.size(); count++)
         {
-            wxDateTime day = NULL;
+            wxDateTime day;
             day.ParseDate(weekends[count]);
 
             wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
@@ -1147,7 +1161,7 @@ bool MyFrame::matchesAssignedDay(cJSON* node)
     }
     else
     {
-        wxDateTime day = NULL;
+        wxDateTime day;
         day.ParseDate(node->valuestring);
 
         wxString dayName = day.GetWeekDayName(day.GetWeekDay(), day.Name_Full); 
@@ -1208,7 +1222,7 @@ cJSON* MyFrame::getEntryFromDailyRecord(cJSON* node)
             cJSON* grandChild = child->child;
             while (grandChild)
             {
-                wxDateTime timestamp = NULL;
+                wxDateTime timestamp;
                 timestamp.ParseDate(grandChild->string);
 
                 if (selectedDate.IsSameDate(timestamp))
@@ -1241,6 +1255,8 @@ cJSON* MyFrame::getTaskStatus(cJSON* node, string dailyID)
 
 void MyFrame::addToTaskDatabaseRecords(cJSON* node)
 {
+    node;
+
     nonEffectiveCalendarClicks += 1;
 
     if (nonEffectiveCalendarClicks > 1)
